@@ -5,20 +5,20 @@ import math
 import matplotlib.pyplot as plt
 
 from sklearn.model_selection import train_test_split
-from sklearn.decomposition import PCA
-from sklearn.feature_selection import VarianceThreshold
+#from sklearn.decomposition import PCA
+#from sklearn.feature_selection import VarianceThreshold
 
-from sklearn.svm import SVC
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.ensemble import GradientBoostingRegressor
+#from sklearn.svm import SVC
+#from sklearn.tree import DecisionTreeRegressor
+#from sklearn.ensemble import RandomForestRegressor
+#from sklearn.ensemble import GradientBoostingRegressor
 
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import roc_curve
-from sklearn.metrics import precision_score, recall_score, f1_score, classification_report
+#from sklearn.metrics import accuracy_score
+#from sklearn.metrics import roc_auc_score
+#from sklearn.metrics import roc_curve
+#from sklearn.metrics import precision_score, recall_score, f1_score, classification_report
 
-from xgboost import XGBRegressor
+#from xgboost import XGBRegressor
 # import lightgbm
 
 import tensorflow as tf
@@ -52,9 +52,9 @@ plt.style.use('seaborn')
 max_len = 340
 #336
 batch_size = 128
-train_samples = 500
+train_samples = 30336
 # 30336
-test_samples = 100
+test_samples = 10000
 #10000
 no_epochs = 30
 
@@ -63,7 +63,7 @@ for i in range(0, train_samples):
     data = np.load("data/train/train/" + str(i) + ".npy")
     zero_mat = np.zeros((max_len, 40))
     zero_mat[:data.shape[0], :] = data
-
+    zero_mat = np.delete(zero_mat, [0,10, 16, 33], axis=1)
     for feature in range(40):
         average_value = np.nanmean(zero_mat[:feature][np.nan_to_num(zero_mat[:feature]) != 0])
         zero_mat[:feature] = np.nan_to_num(zero_mat[:feature], average_value)
@@ -93,7 +93,7 @@ def generate_data(x_data, y_data, b_size):
             counter = 0
 
 
-data_input = Input(shape=(None, 40))
+data_input = Input(shape=(None, 36))
 
 normalize_input = BatchNormalization()(data_input)
 
@@ -113,7 +113,7 @@ generator2 = generate_data(X_train, Y_train, batch_size)
 reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.1, patience=8, verbose=1, mode='min')
 terminate_on_nan = TerminateOnNaN()
 model_checkpoint = ModelCheckpoint("cp_loss789_accuracy_98__v3", monitor='loss', save_best_only=True, mode='min')
-early_stopping = EarlyStopping(monitor='loss', patience=8, mode='auto')
+early_stopping = EarlyStopping(monitor='loss', patience=4, mode='auto')
 
 model.fit_generator(
     generator2,
@@ -134,6 +134,7 @@ for i in range(0, test_samples):
     data = np.load("data/test/test/" + str(i) + ".npy")
     zero_mat = np.zeros((max_len, 40))
     zero_mat[:data.shape[0], :] = data
+    zero_mat = np.delete(zero_mat, [0, 10, 16, 33], axis=1)
     for feature in range(40):
         average_value = np.nanmean(zero_mat[:feature][np.nan_to_num(zero_mat[:feature]) != 0])
         zero_mat[:feature] = np.nan_to_num(zero_mat[:feature], average_value)
