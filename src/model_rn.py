@@ -32,19 +32,19 @@ from keras.optimizers import Adam, SGD
 from keras.callbacks.callbacks import TerminateOnNaN, ModelCheckpoint, LearningRateScheduler, ReduceLROnPlateau, \
     EarlyStopping
 
-def classification_evaluation(y_ture, y_pred):
-  acc = accuracy_score(y_ture, (y_pred>0.5).astype('int'))
-  auc = roc_auc_score(y_ture, y_pred)
-  fpr, tpr, thresholds = roc_curve(y_ture, y_pred)
-
-  print('Accuracy:', acc)
-  print('ROC AUC Score:', auc)
-
-  plt.plot([0, 1], [0, 1], linestyle='--')
-  plt.plot(fpr, tpr, marker='.')
-  plt.xlabel('FPR')
-  plt.ylabel('Recall rate')
-  plt.show()
+# def classification_evaluation(y_ture, y_pred):
+#   acc = accuracy_score(y_ture, (y_pred>0.5).astype('int'))
+#   auc = roc_auc_score(y_ture, y_pred)
+#   fpr, tpr, thresholds = roc_curve(y_ture, y_pred)
+#
+#   print('Accuracy:', acc)
+#   print('ROC AUC Score:', auc)
+#
+#   plt.plot([0, 1], [0, 1], linestyle='--')
+#   plt.plot(fpr, tpr, marker='.')
+#   plt.xlabel('FPR')
+#   plt.ylabel('Recall rate')
+#   plt.show()
 
 
 plt.style.use('seaborn')
@@ -52,9 +52,10 @@ plt.style.use('seaborn')
 max_len = 340
 #336
 batch_size = 128
-train_samples = 30336
+#128
+train_samples = 500
 # 30336
-test_samples = 10000
+test_samples = 20
 #10000
 no_epochs = 30
 
@@ -106,6 +107,14 @@ dense_2 = Dense(1)(dense_1)
 out = Activation('sigmoid')(dense_2)
 model = Model(input=data_input, output=out)
 
+def focal_loss(y_true, y_pred):
+    gamma = 2.0
+    alpha = 0.25
+    pt_1 = tf.where(tf.equal(y_true, 1), y_pred, tf.ones_like(y_pred))
+    pt_0 = tf.where(tf.equal(y_true, 0), y_pred, tf.zeros_like(y_pred))
+    return -K.sum(alpha * K.pow(1. - pt_1, gamma) * K.log(pt_1))-K.sum((1-alpha) * K.pow( pt_0, gamma) * K.log(1. - pt_0))
+
+
 model.compile(optimizer=Adam(lr=0.005), loss= 'binary_crossentropy', metrics=['accuracy'])
 
 generator2 = generate_data(X_train, Y_train, batch_size)
@@ -113,7 +122,8 @@ generator2 = generate_data(X_train, Y_train, batch_size)
 reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.1, patience=8, verbose=1, mode='min')
 terminate_on_nan = TerminateOnNaN()
 model_checkpoint = ModelCheckpoint("cp_loss789_accuracy_98__v3", monitor='loss', save_best_only=True, mode='min')
-early_stopping = EarlyStopping(monitor='loss', patience=4, mode='auto')
+early_stopping = EarlyStopping(monitor=[focal_loss], patience=4, mode='auto')
+
 
 model.fit_generator(
     generator2,
