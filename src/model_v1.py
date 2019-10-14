@@ -40,9 +40,9 @@ plt.style.use('seaborn')
 max_len = 340
 #336
 batch_size = 50
-train_samples = 1000
+train_samples = 30336
 # 30336
-test_samples = 100
+test_samples = 10000
 #10000
 
 X_t = []
@@ -81,11 +81,11 @@ print(X_train_new.shape)
 # # y_pred = svm.predict_proba(X_val_new)[:,1]
 # # classification_evaluation(Y_val, y_pred)
 # #
-print("====DecisionTreeClassifier====")
-dtc = DecisionTreeRegressor(max_depth=8,  min_samples_leaf=2)
-dtc.fit(X_train_new, Y_train)
-y_pred = dtc.predict(X_val_new)
-classification_evaluation(Y_val, y_pred)
+#print("====DecisionTreeClassifier====")
+#dtc = DecisionTreeRegressor(max_depth=8,  min_samples_leaf=2)
+#dtc.fit(X_train_new, Y_train)
+#y_pred = dtc.predict(X_val_new)
+#classification_evaluation(Y_val, y_pred)
 #
 # print("RandomForestClassifier")
 # rmc = RandomForestRegressor(n_estimators=200, min_samples_leaf=2, max_depth=8)
@@ -94,11 +94,11 @@ classification_evaluation(Y_val, y_pred)
 # classification_evaluation(Y_val, y_pred)
 #
 #
-print("======GradientBoostingRegressor====")
-gbc = GradientBoostingRegressor(n_estimators=500, min_samples_leaf=2, max_depth=8)
-gbc.fit(X_train_new, Y_train)
-y_pred = gbc.predict(X_val_new)
-classification_evaluation(Y_val, y_pred)
+#print("======GradientBoostingRegressor====")
+#gbc = GradientBoostingRegressor(n_estimators=500, min_samples_leaf=2, max_depth=8)
+#gbc.fit(X_train_new, Y_train)
+#y_pred = gbc.predict(X_val_new)
+#classification_evaluation(Y_val, y_pred)
 
 print("=======XGBRegressor=====")
 xgb_model = XGBRegressor(objective="binary:logistic", max_depth=8, min_samples_leaf=2, n_estimators=300, random_state=42)
@@ -138,15 +138,14 @@ pred.index.name = 'Id'
 pred.to_csv('xgboost.csv', index=True)
 
 #GradietBoosting
-pred = gbc.predict(X_test)
-print(pred.shape, pred)
-pred = pd.DataFrame(data=pred, index=[i for i in range(pred.shape[0])], columns=["Predicted"])
-pred.index.name = 'Id'
-pred.to_csv('gbc.csv', index=True)
+#pred = gbc.predict(X_test)
+#print(pred.shape, pred)
+#pred = pd.DataFrame(data=pred, index=[i for i in range(pred.shape[0])], columns=["Predicted"])
+#pred.index.name = 'Id'
+#pred.to_csv('gbc.csv', index=True)
 
-print("====DecisionTreeClassifier====")
-pred = dtc.predict(X_test)
-print(pred.shape, pred)
-pred = pd.DataFrame(data=pred, index=[i for i in range(pred.shape[0])], columns=["Predicted"])
-pred.index.name = 'Id'
-pred.to_csv('dtc.csv', index=True)
+#print("====DecisionTreeClassifier====")
+#pred = dtc.predict(X_test)
+#pred = pd.DataFrame(data=pred, index=[i for i in range(pred.shape[0])], columns=["Predicted"])
+#pred.index.name = 'Id'
+#pred.to_csv('dtc.csv', index=True)
