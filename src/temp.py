@@ -51,13 +51,13 @@ plt.style.use('seaborn')
 
 max_len = 340
 #336
-batch_size = 128
+batch_size = 32
 #128
-train_samples = 500
+train_samples = 30336
 # 30336
-test_samples = 20
+test_samples = 10000
 #10000
-no_epochs = 2
+no_epochs = 8
 
 labels = pd.read_csv("data/train_kaggle.csv")
 ones = len(labels.loc[labels['label']==1])
@@ -73,8 +73,8 @@ for index, train_label in labels.iterrows():
     if (ones == 0 and label == 0) or (z == 0 and label == 1):
         continue
     zero_mat = np.zeros((max_len, 40))
-    features = np.load("data/train/train/" + str(train_label['Id']) + '.npy')
-    zero_mat[0:len(features)] = features
+    data = np.load("data/train/train/" + str(train_label['Id']) + '.npy')
+    zero_mat[:data.shape[0], :] = data
     for feature in range(40):
         average_value = np.nanmean(zero_mat[:feature][np.nan_to_num(zero_mat[:feature]) != 0])
         zero_mat[:feature] = np.nan_to_num(zero_mat[:feature], average_value)
@@ -82,18 +82,21 @@ for index, train_label in labels.iterrows():
     X_t.append(zero_mat)
     y_t.append(label)
 
-    zero_mat = np.delete(zero_mat, [0,10, 16, 33], axis=1)
+    #zero_mat = np.delete(zero_mat, [0,10, 16, 33], axis=1)
 
 X = np.array(X_t)
+y  = np.array(y_t)
 # df = pd.read_csv("data/train_kaggle.csv")
 # Y_t = df[:train_samples]
 # y = Y_t.values
-print(X.shape, y_t.shape)
+print(X.shape, y.shape)
+print("FINALLY---->", X, y)
 
+X_train, X_val, Y_train, Y_val = train_test_split(X, y, shuffle=True, test_size=0.20)
 
-X_train, X_val, Y_train, Y_val = train_test_split(X, y, shuffle=True, test_size=0.30)
+print("Trainig set", X_train, X_val)
+print("Trainig set shapes", X_train.shape, X_val.shape, Y_train)
 
-print(X_train.shape, X_val.shape)
 
 def generate_data(x_data, y_data, b_size):
     samples_per_epoch = x_data.shape[0]
@@ -109,14 +112,14 @@ def generate_data(x_data, y_data, b_size):
             counter = 0
 
 
-data_input = Input(shape=(None, 36))
+data_input = Input(shape=(340, 40))
 
-normalize_input = BatchNormalization()(data_input)
+X = BatchNormalization()(data_input)
 
-sig_conv = Conv1D(40, (1), activation='sigmoid', padding='same')(normalize_input)
-rel_conv = Conv1D(40, (1), activation='relu', padding='same')(normalize_input)
-mul_conv = Multiply()([sig_conv, rel_conv])
-lstm = Bidirectional(LSTM(64))(mul_conv)
+sig_conv = Conv1D(40, (1), activation='sigmoid', padding='same')(X)
+rel_conv = Conv1D(40, (1), activation='relu', padding='same')(X)
+X = Multiply()([sig_conv, rel_conv])
+lstm = Bidirectional(LSTM(64))(X)
 dense_1 = Dense(16, activation='relu')(lstm)
 dense_2 = Dense(1)(dense_1)
 out = Activation('sigmoid')(dense_2)
@@ -130,7 +133,7 @@ def focal_loss(y_true, y_pred):
     return -K.sum(alpha * K.pow(1. - pt_1, gamma) * K.log(pt_1))-K.sum((1-alpha) * K.pow( pt_0, gamma) * K.log(1. - pt_0))
 
 
-model.compile(optimizer=Adam(lr=0.005), loss=[focal_loss], metrics=['accuracy'])
+model.compile(optimizer=SGD(lr=0.001, clipnorm=0.5), loss="binary_crossentropy", metrics=['accuracy'])
 
 generator2 = generate_data(X_train, Y_train, batch_size)
 
@@ -148,7 +151,7 @@ model.fit_generator(
     verbose=1,
     #initial_epoch=36,
     validation_data=(X_val, Y_val))
-    #callbacks=[early_stopping, terminate_on_nan, reduce_lr, model_checkpoint])
+   # callbacks=[early_stopping, terminate_on_nan, reduce_lr, model_checkpoint])
 
 
 '''
@@ -159,7 +162,7 @@ for i in range(0, test_samples):
     data = np.load("data/test/test/" + str(i) + ".npy")
     zero_mat = np.zeros((max_len, 40))
     zero_mat[:data.shape[0], :] = data
-    zero_mat = np.delete(zero_mat, [0, 10, 16, 33], axis=1)
+    #zero_mat = np.delete(zero_mat, [0, 10, 16, 33], axis=1)
     for feature in range(40):
         average_value = np.nanmean(zero_mat[:feature][np.nan_to_num(zero_mat[:feature]) != 0])
         zero_mat[:feature] = np.nan_to_num(zero_mat[:feature], average_value)
