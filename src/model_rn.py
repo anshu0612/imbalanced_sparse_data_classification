@@ -51,13 +51,13 @@ plt.style.use('seaborn')
 
 max_len = 340
 #336
-batch_size = 128
+batch_size = 64
 #128
-train_samples = 200
+train_samples = 30336
 # 30336
-test_samples = 20
+test_samples = 10000
 #10000
-no_epochs = 2
+no_epochs = 20
 
 X_t = []
 for i in range(0, train_samples):
@@ -111,8 +111,8 @@ data_input = Input(shape=(12240, 1))
 
 normalize_input = BatchNormalization()(data_input)
 
-sig_conv = Conv1D(40, (1), activation='sigmoid', padding='same')(normalize_input)
-rel_conv = Conv1D(40, (1), activation='relu', padding='same')(normalize_input)
+sig_conv = Conv1D(64, (1), activation='sigmoid', padding='same')(normalize_input)
+rel_conv = Conv1D(64, (1), activation='relu', padding='same')(normalize_input)
 mul_conv = Multiply()([sig_conv, rel_conv])
 lstm = Bidirectional(LSTM(64))(mul_conv)
 dense_1 = Dense(16, activation='relu')(lstm)
@@ -128,7 +128,7 @@ def focal_loss(y_true, y_pred):
     return -K.sum(alpha * K.pow(1. - pt_1, gamma) * K.log(pt_1))-K.sum((1-alpha) * K.pow( pt_0, gamma) * K.log(1. - pt_0))
 
 
-model.compile(optimizer=Adam(lr=0.005), loss=[focal_loss], metrics=['accuracy'])
+model.compile(optimizer=Adam(lr=0.001), loss=[focal_loss], metrics=['accuracy'])
 
 generator2 = generate_data(X_train, Y_train, batch_size)
 
