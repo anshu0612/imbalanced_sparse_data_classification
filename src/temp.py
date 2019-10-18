@@ -55,9 +55,9 @@ batch_size = 64
 #128
 train_samples = 30336
 # 30336
-test_samples = 10
+test_samples = 10000
 #10000
-no_epochs = 100
+no_epochs = 150
 
 labels = pd.read_csv("data/train_kaggle.csv")
 ones = len(labels.loc[labels['label']==1])
@@ -94,8 +94,8 @@ for index in range(y_t.shape[0]):
     for feature in range(40):
         average_value = np.nanmean(X_t[index][:, feature])
         X_t[index][:, feature] = np.nan_to_num(X_t[index][:, feature], nan=average_value)
-    # zero_mat = np.delete(zero_mat, [1, 3, 4, 6, 8, 18, 23, 29, 31], axis=1)
-    x_sampled.append(X_t[index])
+    m = np.delete(X_t[index], [1, 3, 6, 8, 15, 20,22, 23, 24, 29, 31, 36], axis=1)
+    x_sampled.append(m)
     y_sampled.append(y_t[index])
 
 X = np.array(x_sampled)
@@ -127,7 +127,7 @@ def generate_data(x_data, y_data, b_size):
             counter = 0
 
 
-data_input = Input(shape=(None, 40))
+data_input = Input(shape=(None, 28))
 
 X = BatchNormalization()(data_input)
 
@@ -200,6 +200,7 @@ for i in range(0, test_samples):
         average_value = np.nanmean(zero_mat[:, feature])
         zero_mat[:, feature]= np.nan_to_num(zero_mat[:, feature], nan=average_value)
     #zero_mat = np.delete(zero_mat, [1, 3, 4, 6, 8, 18, 23, 29, 31], axis=1)
+    zero_mat = np.delete(zero_mat, [1, 3, 6, 8, 15, 20,22, 23, 24, 29, 31, 36], axis=1)
     X_test.append(zero_mat)
 
 X_test = np.array(X_test)
