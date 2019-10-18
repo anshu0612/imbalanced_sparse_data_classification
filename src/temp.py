@@ -55,47 +55,46 @@ batch_size = 64
 #128
 train_samples = 30336
 # 30336
-test_samples = 10000
+test_samples = 100
 #10000
 no_epochs = 40
 
 labels = pd.read_csv("data/train_kaggle.csv")
 ones = len(labels.loc[labels['label']==1])
-z = ones + 10000
+zeros = ones + 300
 X_t = []
 y_t = []
+print(ones, zeros)
 for index, train_label in labels.iterrows():
     label = train_label['label']
-    if label == 0 and z > 0:
-        z = z  - 1
-    elif label == 1 and ones > 0:
+    if label == 0 and zeros > 0:
+        zeros = zeros - 1
+    if label == 1 and ones > 0:
         ones = ones - 1
-    if (ones == 0 and label == 0) or (z == 0 and label == 1):
+    if (zeros == 0 and label == 0) or (ones == 0 and label == 1):
         continue
     zero_mat = np.zeros((max_len, 40))
     data = np.load("data/train/train/" + str(train_label['Id']) + '.npy')
     zero_mat[:data.shape[0], :] = data
-    #for feature in range(40):
-    #    average_value = np.nanmean(zero_mat[:,feature][np.nan_to_num(zero_mat[:,feature]) != 0])
-    #    zero_mat[:,feature] = np.nan_to_num(zero_mat[:,feature], average_value)
-    zero_mat = np.delete(zero_mat, [1, 3, 4, 6, 8, 18, 23, 29, 31], axis=1)
+    for feature in range(40):
+        average_value = np.nanmean(zero_mat[:, feature])
+        zero_mat[:, feature]= np.nan_to_num(zero_mat[:, feature], nan=average_value)
+    # zero_mat = np.delete(zero_mat, [1, 3, 4, 6, 8, 18, 23, 29, 31], axis=1)
     X_t.append(zero_mat)
     y_t.append(label)
 
-    #zero_mat = np.delete(zero_mat, [0,10, 16, 33], axis=1)
-
-X = np.nan_to_num(np.array(X_t))
-y  = np.array(y_t)
+X = np.array(X_t)
+y = np.array(y_t)
 # df = pd.read_csv("data/train_kaggle.csv")
 # Y_t = df[:train_samples]
 # y = Y_t.values
 print(X.shape, y.shape)
-print("FINALLY---->", X, y)
+# print("FINALLY---->", X[0], y)
 
 X_train, X_val, Y_train, Y_val = train_test_split(X, y, shuffle=True, test_size=0.20)
 
-print("Trainig set", X_train, X_val)
-print("Trainig set shapes", X_train.shape, X_val.shape, Y_train)
+# print("Trainig set", X_train, X_val)
+print("Trainig set shapes", X_train.shape, Y_train,  X_val.shape, Y_val.shape)
 
 
 def generate_data(x_data, y_data, b_size):
@@ -112,7 +111,7 @@ def generate_data(x_data, y_data, b_size):
             counter = 0
 
 
-data_input = Input(shape=(340, 31))
+data_input = Input(shape=(340, 40))
 
 X = BatchNormalization()(data_input)
 
@@ -179,14 +178,13 @@ for i in range(0, test_samples):
     data = np.load("data/test/test/" + str(i) + ".npy")
     zero_mat = np.zeros((max_len, 40))
     zero_mat[:data.shape[0], :] = data
-    #zero_mat = np.delete(zero_mat, [0, 10, 16, 33], axis=1)
-    #for feature in range(40):
-    #    average_value = np.nanmean(zero_mat[:,feature][np.nan_to_num(zero_mat[:,feature]) != 0])
-    #    zero_mat[:,feature] = np.nan_to_num(zero_mat[:,feature], average_value)
-    zero_mat = np.delete(zero_mat, [1, 3, 4, 6, 8, 18, 23, 29, 31], axis=1)
+    for feature in range(40):
+        average_value = np.nanmean(zero_mat[:, feature])
+        zero_mat[:, feature]= np.nan_to_num(zero_mat[:, feature], nan=average_value)
+    # zero_mat = np.delete(zero_mat, [1, 3, 4, 6, 8, 18, 23, 29, 31], axis=1)
     X_test.append(zero_mat)
 
-X_test = np.nan_to_num(np.array(X_test))
+X_test = np.array(X_test)
 print(X_test.shape)
 
 pred = model.predict(X_test)
