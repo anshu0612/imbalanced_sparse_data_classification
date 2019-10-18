@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
-
+from keras import regularizers
 from sklearn.model_selection import train_test_split
 #from sklearn.decomposition import PCA
 #from sklearn.feature_selection import VarianceThreshold
@@ -25,7 +25,7 @@ import tensorflow as tf
 import keras.backend as K
 from keras.preprocessing import sequence
 from keras.models import Sequential, Model
-from keras.layers import Dense, Dropout, Embedding, LSTM, Bidirectional, Input, BatchNormalization, Conv1D, Multiply, Activation, MaxPooling1D
+from keras.layers import Dense, Dropout, Embedding, LSTM, Bidirectional, GlobalMaxPooling1D, Input, BatchNormalization, Conv1D, Multiply, Activation, MaxPooling1D
 from keras.regularizers import l2
 from keras.optimizers import Adam, SGD
 
@@ -55,13 +55,13 @@ batch_size = 64
 #128
 train_samples = 30336
 # 30336
-test_samples = 100
+test_samples = 10000
 #10000
-no_epochs = 40
+no_epochs = 100
 
 labels = pd.read_csv("data/train_kaggle.csv")
 ones = len(labels.loc[labels['label']==1])
-zeros = ones + 300
+zeros = ones
 X_t = []
 y_t = []
 print(ones, zeros)
@@ -79,7 +79,7 @@ for index, train_label in labels.iterrows():
     for feature in range(40):
         average_value = np.nanmean(zero_mat[:, feature])
         zero_mat[:, feature]= np.nan_to_num(zero_mat[:, feature], nan=average_value)
-    # zero_mat = np.delete(zero_mat, [1, 3, 4, 6, 8, 18, 23, 29, 31], axis=1)
+    zero_mat = np.delete(zero_mat, [1, 3, 4, 6, 8, 18, 23, 29, 31], axis=1)
     X_t.append(zero_mat)
     y_t.append(label)
 
@@ -111,18 +111,23 @@ def generate_data(x_data, y_data, b_size):
             counter = 0
 
 
-data_input = Input(shape=(340, 40))
+data_input = Input(shape=(None, 31))
 
 X = BatchNormalization()(data_input)
 
 sig_conv = Conv1D(40, (1), activation='sigmoid', padding='same')(X)
 rel_conv = Conv1D(40, (1), activation='relu', padding='same')(X)
 X = Multiply()([sig_conv, rel_conv])
-lstm = Bidirectional(LSTM(64))(X)
-dense_1 = Dense(16, activation='relu')(lstm)
-dense_2 = Dense(1)(dense_1)
-out = Activation('sigmoid')(dense_2)
-model = Model(input=data_input, output=out)
+X = Bidirectional(LSTM(64))(X)
+#X = GlobalMaxPooling1D()(X)
+X = Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.0005))(X)
+X = Dropout(0.5)(X)
+X = Dense(1, kernel_regularizer=regularizers.l2(0.0005))(X)
+X = Activation("sigmoid")(X)
+#dense_1 = Dense(16, activation='relu')(lstm)
+#dense_2 = Dense(1)(dense_1)
+#out = Activation('sigmoid')(dense_2)
+model = Model(input=data_input, output=X)
 
 def focal_loss(y_true, y_pred):
     gamma = 2.0
@@ -154,7 +159,7 @@ generator2 = generate_data(X_train, Y_train, batch_size)
 
 reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.1, patience=8, verbose=1, mode='min')
 terminate_on_nan = TerminateOnNaN()
-model_checkpoint = ModelCheckpoint("cp_loss789_accuracy_98__v3", monitor='loss', save_best_only=True, mode='min')
+model_checkpoint = ModelCheckpoint("cp1", monitor='loss', save_best_only=True, mode='min')
 early_stopping = EarlyStopping(monitor=['loss'], patience=4, mode='auto')
 
 
@@ -165,8 +170,8 @@ model.fit_generator(
     shuffle=True,
     verbose=1,
     #initial_epoch=36,
-    validation_data=(X_val, Y_val))
-   # callbacks=[early_stopping, terminate_on_nan, reduce_lr, model_checkpoint])
+    validation_data=(X_val, Y_val),
+    callbacks=([model_checkpoint]))
 
 loss, accuracy, f1_score, precision, recall = model.evaluate(X_val, Y_val, verbose=0)
 print("EVALUATION loss:", loss,"accuracy:",  accuracy, "f1_score:", f1_score, "precision:",precision, "recall:",recall)
@@ -181,7 +186,7 @@ for i in range(0, test_samples):
     for feature in range(40):
         average_value = np.nanmean(zero_mat[:, feature])
         zero_mat[:, feature]= np.nan_to_num(zero_mat[:, feature], nan=average_value)
-    # zero_mat = np.delete(zero_mat, [1, 3, 4, 6, 8, 18, 23, 29, 31], axis=1)
+    zero_mat = np.delete(zero_mat, [1, 3, 4, 6, 8, 18, 23, 29, 31], axis=1)
     X_test.append(zero_mat)
 
 X_test = np.array(X_test)
