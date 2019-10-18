@@ -94,7 +94,7 @@ for index in range(y_t.shape[0]):
     for feature in range(40):
         average_value = np.nanmean(X_t[index][:, feature])
         X_t[index][:, feature] = np.nan_to_num(X_t[index][:, feature], nan=average_value)
-    m = np.delete(X_t[index], [1, 3, 6, 8, 15, 20,22, 23, 24, 29, 31, 36], axis=1)
+    m = np.delete(X_t[index], [1, 3, 4, 6, 8, 15, 17, 18, 20, 22, 23, 24, 29, 31, 36], axis=1)
     x_sampled.append(m)
     y_sampled.append(y_t[index])
 
@@ -127,13 +127,14 @@ def generate_data(x_data, y_data, b_size):
             counter = 0
 
 
-data_input = Input(shape=(None, 28))
+data_input = Input(shape=(None, 25))
 
 X = BatchNormalization()(data_input)
 
 sig_conv = Conv1D(64, (1), activation='sigmoid', padding='same')(X)
 rel_conv = Conv1D(64, (1), activation='relu', padding='same')(X)
 X = Multiply()([sig_conv, rel_conv])
+X = BatchNormalization()(X)
 X = Bidirectional(LSTM(64))(X)
 # X = GlobalMaxPooling1D()(X)
 X = Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.0005))(X)
@@ -166,14 +167,14 @@ def f1_m(y_true, y_pred):
     recall = recall_m(y_true, y_pred)
     return 2*((precision*recall)/(precision+recall+K.epsilon()))
 
-model.compile(optimizer=SGD(lr=0.001), loss=[focal_loss], metrics=['accuracy', f1_m,precision_m, recall_m])
+model.compile(optimizer=Adam(lr=0.001), loss=[focal_loss], metrics=['accuracy', f1_m,precision_m, recall_m])
 
 generator2 = generate_data(X_train, Y_train, batch_size)
 
 reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.1, patience=8, verbose=1, mode='min')
 terminate_on_nan = TerminateOnNaN()
 model_checkpoint = ModelCheckpoint("cp1", monitor='loss', save_best_only=True, mode='min')
-early_stopping = EarlyStopping(monitor=['loss'], patience=4, mode='auto')
+early_stopping = EarlyStopping(monitor='f1_m', patience=4, mode='auto')
 
 
 model.fit_generator(
@@ -184,7 +185,7 @@ model.fit_generator(
     verbose=1,
     #initial_epoch=36,
     validation_data=(X_val, Y_val),
-    callbacks=([model_checkpoint]))
+    callbacks=([model_checkpoint, terminate_on_nan, reduce_lr, early_stopping]))
 
 loss, accuracy, f1_score, precision, recall = model.evaluate(X_val, Y_val, verbose=0)
 print("EVALUATION loss:", loss,"accuracy:",  accuracy, "f1_score:", f1_score, "precision:",precision, "recall:",recall)
@@ -199,8 +200,7 @@ for i in range(0, test_samples):
     for feature in range(40):
         average_value = np.nanmean(zero_mat[:, feature])
         zero_mat[:, feature]= np.nan_to_num(zero_mat[:, feature], nan=average_value)
-    #zero_mat = np.delete(zero_mat, [1, 3, 4, 6, 8, 18, 23, 29, 31], axis=1)
-    zero_mat = np.delete(zero_mat, [1, 3, 6, 8, 15, 20,22, 23, 24, 29, 31, 36], axis=1)
+    zero_mat = np.delete(zero_mat, [1, 3, 4, 6, 8, 15, 17, 18, 20, 22, 23, 24, 29, 31, 36], axis=1)
     X_test.append(zero_mat)
 
 X_test = np.array(X_test)
