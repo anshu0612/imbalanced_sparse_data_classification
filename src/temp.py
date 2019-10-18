@@ -51,40 +51,40 @@ plt.style.use('seaborn')
 
 max_len = 340
 #336
-batch_size = 32
+batch_size = 64
 #128
 train_samples = 30336
 # 30336
 test_samples = 10000
 #10000
-no_epochs = 8
+no_epochs = 40
 
 labels = pd.read_csv("data/train_kaggle.csv")
 ones = len(labels.loc[labels['label']==1])
-z = ones
+z = ones + 10000
 X_t = []
 y_t = []
 for index, train_label in labels.iterrows():
     label = train_label['label']
-    if label == 0 and ones > 0:
+    if label == 0 and z > 0:
+        z = z  - 1
+    elif label == 1 and ones > 0:
         ones = ones - 1
-    elif label == 1 and z > 0:
-        z = z - 1
     if (ones == 0 and label == 0) or (z == 0 and label == 1):
         continue
     zero_mat = np.zeros((max_len, 40))
     data = np.load("data/train/train/" + str(train_label['Id']) + '.npy')
     zero_mat[:data.shape[0], :] = data
-    for feature in range(40):
-        average_value = np.nanmean(zero_mat[:feature][np.nan_to_num(zero_mat[:feature]) != 0])
-        zero_mat[:feature] = np.nan_to_num(zero_mat[:feature], average_value)
-
+    #for feature in range(40):
+    #    average_value = np.nanmean(zero_mat[:,feature][np.nan_to_num(zero_mat[:,feature]) != 0])
+    #    zero_mat[:,feature] = np.nan_to_num(zero_mat[:,feature], average_value)
+    zero_mat = np.delete(zero_mat, [1, 3, 4, 6, 8, 18, 23, 29, 31], axis=1)
     X_t.append(zero_mat)
     y_t.append(label)
 
     #zero_mat = np.delete(zero_mat, [0,10, 16, 33], axis=1)
 
-X = np.array(X_t)
+X = np.nan_to_num(np.array(X_t))
 y  = np.array(y_t)
 # df = pd.read_csv("data/train_kaggle.csv")
 # Y_t = df[:train_samples]
@@ -112,7 +112,7 @@ def generate_data(x_data, y_data, b_size):
             counter = 0
 
 
-data_input = Input(shape=(340, 40))
+data_input = Input(shape=(340, 31))
 
 X = BatchNormalization()(data_input)
 
@@ -132,8 +132,24 @@ def focal_loss(y_true, y_pred):
     pt_0 = tf.where(tf.equal(y_true, 0), y_pred, tf.zeros_like(y_pred))
     return -K.sum(alpha * K.pow(1. - pt_1, gamma) * K.log(pt_1))-K.sum((1-alpha) * K.pow( pt_0, gamma) * K.log(1. - pt_0))
 
+def recall_m(y_true, y_pred):
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+    recall = true_positives / (possible_positives + K.epsilon())
+    return recall
 
-model.compile(optimizer=SGD(lr=0.001, clipnorm=0.5), loss="binary_crossentropy", metrics=['accuracy'])
+def precision_m(y_true, y_pred):
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+    precision = true_positives / (predicted_positives + K.epsilon())
+    return precision
+
+def f1_m(y_true, y_pred):
+    precision = precision_m(y_true, y_pred)
+    recall = recall_m(y_true, y_pred)
+    return 2*((precision*recall)/(precision+recall+K.epsilon()))
+
+model.compile(optimizer=SGD(lr=0.001), loss=[focal_loss], metrics=['accuracy', f1_m,precision_m, recall_m])
 
 generator2 = generate_data(X_train, Y_train, batch_size)
 
@@ -153,7 +169,8 @@ model.fit_generator(
     validation_data=(X_val, Y_val))
    # callbacks=[early_stopping, terminate_on_nan, reduce_lr, model_checkpoint])
 
-
+loss, accuracy, f1_score, precision, recall = model.evaluate(X_val, Y_val, verbose=0)
+print("EVALUATION loss:", loss,"accuracy:",  accuracy, "f1_score:", f1_score, "precision:",precision, "recall:",recall)
 '''
     STEP 4 : Prepare test samples
 '''
@@ -163,9 +180,10 @@ for i in range(0, test_samples):
     zero_mat = np.zeros((max_len, 40))
     zero_mat[:data.shape[0], :] = data
     #zero_mat = np.delete(zero_mat, [0, 10, 16, 33], axis=1)
-    for feature in range(40):
-        average_value = np.nanmean(zero_mat[:feature][np.nan_to_num(zero_mat[:feature]) != 0])
-        zero_mat[:feature] = np.nan_to_num(zero_mat[:feature], average_value)
+    #for feature in range(40):
+    #    average_value = np.nanmean(zero_mat[:,feature][np.nan_to_num(zero_mat[:,feature]) != 0])
+    #    zero_mat[:,feature] = np.nan_to_num(zero_mat[:,feature], average_value)
+    zero_mat = np.delete(zero_mat, [1, 3, 4, 6, 8, 18, 23, 29, 31], axis=1)
     X_test.append(zero_mat)
 
 X_test = np.nan_to_num(np.array(X_test))
