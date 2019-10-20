@@ -92,12 +92,22 @@ for index in range(y_t.shape[0]):
         ones = ones - 1
     if (zeros == 0 and label == 0) or (ones == 0 and label == 1):
         continue
+    df1 = pd.DataFrame(data=X_t[index])
+    #df1.fillna(0, inplace=True)
     for feature in range(40):
-        average_value = np.nanmean(X_t[index][:, feature])
+        #average_value = np.nanmean(X_t[index][:, feature])
         #print(average_value)
         #X_t[index][:, feature] = np.nan_to_num(X_t[index][:, feature], nan=average_value)
-        X_t[index][:, feature] = np.nan_to_num(X_t[index][:, feature], nan=0)
-    m = np.delete(X_t[index], [2], axis=1)
+        #X_t[index][:, feature] = np.nan_to_num(X_t[index][:, feature], nan=0)
+        #df1 = pd.DataFrame(data=X_t[index])
+        median = df1[feature].mode()
+        df1[feature].fillna(median, inplace=True)
+    #df1.fillna(0, inplace=True)
+    m = np.array(df1)
+    m = np.delete(m, [2, 34, 16, 10], axis=1)
+    #df1 = pd.DataFrame(data=m)
+    #df1 = df1.fillna(method='bfill')
+
     x_sampled.append(m)
     y_sampled.append(y_t[index])
 
@@ -105,6 +115,7 @@ X = np.nan_to_num(np.array(x_sampled))
 y = np.array(y_sampled)
 
 print("Stage 2", X.shape, y.shape)
+#model = load_model("cp1")
 # print(y)
 # df = pd.read_csv("data/train_kaggle.csv")
 # Y_t = df[:train_samples]
@@ -130,7 +141,7 @@ def generate_data(x_data, y_data, b_size):
             counter = 0
 
 
-data_input = Input(shape=(None, 39))
+data_input = Input(shape=(None, 36))
 
 X = BatchNormalization()(data_input)
 
@@ -147,11 +158,11 @@ X = BatchNormalization()(X)
 X = Bidirectional(LSTM(64))(X)
 #X = GlobalMaxPooling1D()(X)
 X = Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.0005))(X)
+#X = Bidirectional(LSTM(32))(X)
 X = Dropout(0.5)(X)
 X = Dense(1, kernel_regularizer=regularizers.l2(0.0005))(X)
 X = Activation("sigmoid")(X)
 model = Model(input=data_input, output=X)
-
 
 def focal_loss(y_true, y_pred):
     gamma = 2.0
@@ -186,7 +197,7 @@ generator2 = generate_data(X_train, Y_train, batch_size)
 reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.1, patience=10, verbose=1, mode='min')
 terminate_on_nan = TerminateOnNaN()
 model_checkpoint = ModelCheckpoint("cp1", monitor='loss', save_best_only=True, mode='min')
-early_stopping = EarlyStopping(monitor='val_loss', patience=15, mode='auto')
+early_stopping = EarlyStopping(monitor='val_loss', patience=12, mode='auto')
 
 class_weights = class_weight.compute_class_weight('balanced', np.unique(Y_train), Y_train)
 
@@ -211,15 +222,26 @@ for i in range(0, test_samples):
     data = np.load("data/test/test/" + str(i) + ".npy")
     zero_mat = np.zeros((50, 40))
     zero_mat[:data.shape[0], :] = data[:min(50, data.shape[0]), :]
+    df1 = pd.DataFrame(data=zero_mat)
     for feature in range(40):
-        average_value = np.nanmean(zero_mat[:, feature])
+    #    average_value = np.nanmean(zero_mat[:, feature])
         #zero_mat[:, feature]= np.nan_to_num(zero_mat[:, feature], nan=average_value)
-        zero_mat[:, feature] = np.nan_to_num(zero_mat[:, feature], nan=0)
-    zero_mat = np.delete(zero_mat, [2], axis=1)
+    #    zero_mat[:, feature] = np.nan_to_num(zero_mat[:, feature], nan=0)
+        mod = df1[feature].mode()
+        df1[feature].fillna(mod, inplace=True)
+    
+    zero_mat = np.array(df1)
+    zero_mat = np.delete(zero_mat, [2, 34, 16, 10], axis=1)
+    #df1 = pd.DataFrame(data=zero_mat)
+    #zero_mat = df1.fillna(method='bfill')
     # 11, 33, 35
     #1,3, 4, 15, 17,  22, 24, 36
     #1, 3, 4, 6, 8, 15, 17, 18, 20, 22, 23, 24, 29, 31, 36
-    X_test.append(zero_mat)
+    #df1 = pd.DataFrame(data=X_t[index])
+    #median = df1[feature].mode()
+    #df1[feature].fillna(median, inplace=True)
+   
+    X_test.append(np.array(zero_mat))
 
 X_test = np.nan_to_num(np.array(X_test))
 print(X_test.shape)
