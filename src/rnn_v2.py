@@ -70,7 +70,18 @@ for index, train_label in labels.iterrows():
     label = train_label['label']
     zero_mat = np.zeros((50, 40))
     data = np.load("data/train/train/" + str(train_label['Id']) + '.npy')
+    print("STEP 1:", data.shape)
+
+    df1 = pd.DataFrame(data=data)
+    Q1 = df1.quantile(0.25)
+    Q3 = df1.quantile(0.75)
+    IQR = Q3 - Q1
+    df1 = df1[~((df1 < (Q1 - 1.5 * IQR)) | (df1 > (Q3 + 1.5 * IQR))).any(axis=1)]
+    data = np.array(df1)
+    # print("STEP 2:", data.shape)
     zero_mat[:data.shape[0], :] = data[:min(50, data.shape[0]), :]
+    # print("STEP 2:", data.shape)
+
     X_t.append(zero_mat)
     y_t.append(label)
 
@@ -91,11 +102,11 @@ for index in range(y_t.shape[0]):
         ones = ones - 1
     if (zeros == 0 and label == 0) or (ones == 0 and label == 1):
         continue
-    for feature in range(40):
-        average_value = np.nanmean(X_t[index][:, feature])
+    #for feature in range(40):
+        #average_value = np.nanmean(X_t[index][:, feature])
         #print(average_value)
         #X_t[index][:, feature] = np.nan_to_num(X_t[index][:, feature], nan=average_value)
-        X_t[index][:, feature] = np.nan_to_num(X_t[index][:, feature], nan=0)
+        #X_t[index][:, feature] = np.nan_to_num(X_t[index][:, feature], nan=0)
     m = np.delete(X_t[index], [2], axis=1)
     x_sampled.append(m)
     y_sampled.append(y_t[index])
