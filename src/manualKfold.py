@@ -145,6 +145,26 @@ X_all = np.nan_to_num(np.array(X_t))
 y_all = np.array(y_t)
 print("STAGE 1", X_all.shape, y_all.shape)
 
+'''
+    STEP 4 : Prepare test samples
+'''
+X_test = []
+for i in range(0, test_samples):
+    data = np.load("data/test/test/" + str(i) + ".npy")
+    zero_mat = np.zeros((min_l, 40))
+
+    df1 = pd.DataFrame(data=data)
+    Q1 = df1.quantile(0.25)
+    Q3 = df1.quantile(0.75)
+    IQR = Q3 - Q1
+    df1 = df1[~((df1 < (Q1 - 1.5 * IQR)) | (df1 > (Q3 + 1.5 * IQR))).any(axis=1)]
+    data = np.array(df1)
+
+    zero_mat[:data.shape[0], :] = data[:min(min_l, data.shape[0]), :]
+    zero_mat = np.delete(zero_mat, [], axis=1)
+    X_test.append(zero_mat)
+X_test = np.nan_to_num(np.array(X_test))
+
 def getRandomUnderSampledData():
     X_shuffled, y_shuffled = shuffle(X_all, y_all, random_state=0)
 
@@ -183,6 +203,8 @@ model_checkpoint = ModelCheckpoint("cp1", monitor='loss', save_best_only=True, m
 early_stopping = EarlyStopping(monitor='recall_m', patience=10, mode='auto')
 opt = Adam(lr=0.001, decay=1e-8)
 
+
+predictions = []
 for gen in range(2):
     X_undersam, y_undersam = getRandomUnderSampledData()
     print("Stage 2 of", gen + 1, "__", X_undersam.shape, y_undersam.shape)
@@ -210,41 +232,14 @@ for gen in range(2):
     print("EVALUATION loss for:___", gen, ":___", loss, "accuracy:", accuracy, "f1_score:", f1_score, "precision:", precision, "recall:",
           recall)
 
-    # pred = model.predict(X_val)
-    # classification_evaluation(pred, y_val)
-'''
-    STEP 4 : Prepare test samples
-'''
-# X_test = []
-# for i in range(0, test_samples):
-#     data = np.load("data/test/test/" + str(i) + ".npy")
-#     zero_mat = np.zeros((min_l, 40))
-#
-#     df1 = pd.DataFrame(data=data)
-#     Q1 = df1.quantile(0.25)
-#     Q3 = df1.quantile(0.75)
-#     IQR = Q3 - Q1
-#     df1 = df1[~((df1 < (Q1 - 1.5 * IQR)) | (df1 > (Q3 + 1.5 * IQR))).any(axis=1)]
-#     data = np.array(df1)
-#
-#     # for feature in range(40):
-#     # average_value = np.nanmean(zero_mat[:, feature])
-#     # zero_mat[:, feature]= np.nan_to_num(zero_mat[:, feature], nan=average_value)
-#     # zero_mat[:, feature] = np.nan_to_num(zero_mat[:, feature], nan=0)
-#     zero_mat[:data.shape[0], :] = data[:min(min_l, data.shape[0]), :]
-#     zero_mat = np.delete(zero_mat, rm, axis=1)
-#     # 11, 33, 35
-#     # 1,3, 4, 15, 17,  22, 24, 36
-#     # 1, 3, 4, 6, 8, 15, 17, 18, 20, 22, 23, 24, 29, 31, 36
-#     X_test.append(zero_mat)
-#
-# X_test = np.nan_to_num(np.array(X_test))
-# print(X_test.shape)
-# # model = load_model("cp1")
-# # model = load_model("cp1")
-#
-# pred = model.predict(X_test)
-# print(pred.shape, pred)
-# pred = pd.DataFrame(data=pred, index=[i for i in range(pred.shape[0])], columns=["Predicted"])
-# pred.index.name = 'Id'
-# pred.to_csv('rnn_v15.csv', index=True)
+    pred = model.predict(X_test)
+    print(pred.shape, pred)
+    predictions.append(pred)
+
+predictions = np.array(predictions)
+print("Ensemble labels shape:", predictions.shape)
+predictions = np.mean(predictions, axis=0)
+
+pred = pd.DataFrame(data=predictions, index=[i for i in range(predictions.shape[0])], columns=["Predicted"])
+pred.index.name = 'Id'
+pred.to_csv('rnn_v15.csv', index=True)
