@@ -165,8 +165,9 @@ for i in range(0, test_samples):
     X_test.append(zero_mat)
 X_test = np.nan_to_num(np.array(X_test))
 
-def getRandomUnderSampledData():
-    X_shuffled, y_shuffled = shuffle(X_all, y_all, random_state=0)
+mm = len(labels.loc[labels['label'] == 1])
+def getRandomUnderSampledData(gen):
+    X_shuffled, y_shuffled = shuffle(X_all, y_all, random_state=gen)
 
     # a = np.arange(40)
     # np.random.shuffle(a)
@@ -174,7 +175,7 @@ def getRandomUnderSampledData():
     rm = []
     x_sampled = []
     y_sampled = []
-    ones = len(labels.loc[labels['label'] == 1])
+    ones = mm
     zeros = ones
 
     for idx in range(y_shuffled.shape[0]):
@@ -206,10 +207,10 @@ opt = Adam(lr=0.001, decay=1e-8)
 
 predictions = []
 for gen in range(2):
-    X_undersam, y_undersam = getRandomUnderSampledData()
+    X_undersam, y_undersam = getRandomUnderSampledData(gen)
     print("Stage 2 of", gen + 1, "__", X_undersam.shape, y_undersam.shape)
 
-    X_train, X_val, y_train, y_val = train_test_split(X_undersam, y_undersam, shuffle=True, test_size=0.10)
+    X_train, X_val, y_train, y_val = train_test_split(X_undersam, y_undersam, shuffle=True, test_size=0.15)
     print("Stage 3 of", gen + 1, "__", X_train.shape, y_train.shape)
 
     generator2 = generate_data(X_train, y_train, batch_size)
@@ -223,7 +224,7 @@ for gen in range(2):
         steps_per_epoch=math.ceil(len(X_train)/batch_size),
         epochs=no_epochs,
         class_weight=class_weights,
-        shuffle=True,
+        #shuffle=True,
         verbose=1,
         validation_data=(X_val, y_val),
         callbacks=[early_stopping, reduce_lr, terminate_on_nan, model_checkpoint])
