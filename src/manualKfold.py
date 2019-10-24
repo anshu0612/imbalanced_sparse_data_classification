@@ -92,7 +92,7 @@ def f1_m(y_true, y_pred):
 #     return 1 - K.mean(f1)
 
 ############# ****  MODEL ***** ##############
-data_input = Input(shape=(None, 40))
+data_input = Input(shape=(None, 35))
 X = BatchNormalization()(data_input)
 sig_conv = Conv1D(64, (1), activation='sigmoid', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
 # rel_conv = Conv1D(64, (1), activation='relu', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
@@ -149,6 +149,9 @@ print("STAGE 1", X_all.shape, y_all.shape)
     STEP 4 : Prepare test samples
 '''
 X_test = []
+ab = np.arange(40)
+np.random.shuffle(ab)
+rr = ab[:5]
 for i in range(0, test_samples):
     data = np.load("data/test/test/" + str(i) + ".npy")
     zero_mat = np.zeros((min_l, 40))
@@ -161,7 +164,7 @@ for i in range(0, test_samples):
     data = np.array(df1)
 
     zero_mat[:data.shape[0], :] = data[:min(min_l, data.shape[0]), :]
-    zero_mat = np.delete(zero_mat, [], axis=1)
+    zero_mat = np.delete(zero_mat, rr, axis=1)
     X_test.append(zero_mat)
 X_test = np.nan_to_num(np.array(X_test))
 
@@ -169,10 +172,10 @@ mm = len(labels.loc[labels['label'] == 1])
 def getRandomUnderSampledData(gen):
     X_shuffled, y_shuffled = shuffle(X_all, y_all, random_state=gen)
 
-    # a = np.arange(40)
-    # np.random.shuffle(a)
-    # rm = a[:4]
-    rm = []
+    a = np.arange(40)
+    np.random.shuffle(a)
+    rm = a[:5]
+    #rm = []
     x_sampled = []
     y_sampled = []
     ones = mm
@@ -186,8 +189,8 @@ def getRandomUnderSampledData(gen):
             ones = ones - 1
         if (zeros == 0 and label == 0) or (ones == 0 and label == 1):
             continue
-        if (zeros == 0 and ones == 0):
-            break
+#        if (zeros == 0 and ones == 0):
+#            break
         m = np.delete(X_shuffled[idx], rm, axis=1)
         x_sampled.append(m)
         y_sampled.append(y_t[idx])
@@ -206,10 +209,12 @@ opt = Adam(lr=0.001, decay=1e-8)
 
 
 predictions = []
-for gen in range(2):
+for gen in range(20):
     X_undersam, y_undersam = getRandomUnderSampledData(gen)
     print("Stage 2 of", gen + 1, "__", X_undersam.shape, y_undersam.shape)
+    X_undersam = np.nan_to_num(X_undersam)
 
+    y_undersam = np.array(y_undersam)
     X_train, X_val, y_train, y_val = train_test_split(X_undersam, y_undersam, shuffle=True, test_size=0.15)
     print("Stage 3 of", gen + 1, "__", X_train.shape, y_train.shape)
 
@@ -219,19 +224,21 @@ for gen in range(2):
     model.compile(optimizer=opt, loss=[focal_loss],
                   metrics=['accuracy', f1_m, precision_m, recall_m])
     #model.fit(x=X_train, y=Y_train, epochs=10, batch_size=32, shuffle=True)
+    #model.fit(x=X_train, y=y_train, epochs=20, batch_size=64, class_weight=class_weights, shuffle=True, callbacks=[early_stopping, reduce_lr, terminate_on_nan, model_checkpoint])
+
     model.fit_generator(
         generator2,
         steps_per_epoch=math.ceil(len(X_train)/batch_size),
         epochs=no_epochs,
         class_weight=class_weights,
-        #shuffle=True,
+        shuffle=True,
         verbose=1,
         validation_data=(X_val, y_val),
         callbacks=[early_stopping, reduce_lr, terminate_on_nan, model_checkpoint])
-
     loss, accuracy, f1_score, precision, recall = model.evaluate(X_val, y_val, verbose=0)
     print("EVALUATION loss for:___", gen, ":___", loss, "accuracy:", accuracy, "f1_score:", f1_score, "precision:", precision, "recall:",
           recall)
+
 
     pred = model.predict(X_test)
     print(pred.shape, pred)
