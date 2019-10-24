@@ -57,7 +57,7 @@ batch_size = 64
 # 128
 train_samples = 30336
 # 30336
-test_samples = 100
+test_samples = 10000
 # 10000
 no_epochs = 88
 
@@ -98,7 +98,7 @@ print("Stage 1", X_t.shape, y_t.shape)
 
 # rm = []
 mm = len(labels.loc[labels['label'] == 1])
-rm = []
+# rm = []
 def sample():
     ones = mm
     zeros = mm
@@ -127,8 +127,7 @@ def sample():
         # print(average_value)
         # X_t[index][:, feature] = np.nan_to_num(X_t[index][:, feature], nan=average_value)
         # X_t[index][:, feature] = np.nan_to_num(X_t[index][:, feature], nan=0)
-        m = np.delete(XX[index], rm, axis=1)
-        x_sampled.append(m)
+        x_sampled.append(XX[index])
         y_sampled.append(yy[index])
 
     return np.array(x_sampled), np.array(y_sampled)
@@ -159,7 +158,7 @@ def generate_data(x_data, y_data, b_size):
             counter = 0
 
 
-data_input = Input(shape=(None, 40))
+data_input = Input(shape=(None, 35))
 X = BatchNormalization()(data_input)
 
 sig_conv = Conv1D(64, (1), activation='sigmoid', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
@@ -245,7 +244,7 @@ for i in range(0, test_samples):
     # zero_mat[:, feature]= np.nan_to_num(zero_mat[:, feature], nan=average_value)
     # zero_mat[:, feature] = np.nan_to_num(zero_mat[:, feature], nan=0)
     zero_mat[:data.shape[0], :] = data[:min(ml, data.shape[0]), :]
-    zero_mat = np.delete(zero_mat, rm, axis=1)
+    #zero_mat = np.delete(zero_mat, rm, axis=1)
     # 11, 33, 35
     # 1,3, 4, 15, 17,  22, 24, 36
     # 1, 3, 4, 6, 8, 15, 17, 18, 20, 22, 23, 24, 29, 31, 36
@@ -254,8 +253,19 @@ for i in range(0, test_samples):
 X_test = np.nan_to_num(np.array(X_test))
 
 predictions = []
-for i in range(2):
-    xr, yr =  sample()
+for i in range(10):
+    xr, yr = sample()
+
+    a = np.arange(40)
+    np.random.shuffle(a)
+    rm = a[:5]
+    print("BEFORE",  xr.shape)
+    xr = np.delete(xr, rm, axis=2)
+
+    X_test_dup = X_test
+    X_test_dup = np.delete(X_test_dup, rm, axis=2)
+
+    print("After", xr.shape)
     X_train, X_val, Y_train, Y_val = train_test_split(xr, yr, shuffle=True, test_size=0.15)
 
     print("Trainig set shapes", X_train.shape, Y_train, X_val.shape, Y_val.shape)
@@ -285,7 +295,7 @@ for i in range(2):
     print("EVALUATION loss:", loss, "accuracy:", accuracy, "f1_score:", f1_score, "precision:", precision, "recall:",
           recall)
 
-    pred = model.predict(X_test)
+    pred = model.predict(X_test_dup)
     print(pred.shape, pred)
     predictions.append(pred)
 
@@ -295,4 +305,4 @@ predictions = np.mean(predictions, axis=0)
 
 pred = pd.DataFrame(data=predictions, index=[i for i in range(predictions.shape[0])], columns=["Predicted"])
 pred.index.name = 'Id'
-pred.to_csv('re.csv', index=True)
+pred.to_csv('rand_f_re.csv', index=True)
