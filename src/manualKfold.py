@@ -172,7 +172,7 @@ X_test = np.nan_to_num(np.array(X_test))
 mm = len(labels.loc[labels['label'] == 1])
 def getRandomUnderSampledData(gen):
     X_shuffled, y_shuffled = shuffle(X_all, y_all, random_state=gen)
-
+    print("y_shuffled", y_shuffled)
     a = np.arange(40)
     np.random.shuffle(a)
     rm = a[:5]
@@ -181,35 +181,44 @@ def getRandomUnderSampledData(gen):
     y_sampled = []
     ones = mm
     zeros = ones
-
+    print("number of 1s:", mm)
+    print("y_shuffled", y_shuffled, y_shuffled.shape[0])
     for idx in range(y_shuffled.shape[0]):
         label = y_shuffled[idx]
-        if label == 0 and zeros > 0:
-            zeros = zeros - 1
-        if label == 1 and ones > 0:
-            ones = ones - 1
-        if (zeros == 0 and label == 0) or (ones == 0 and label == 1):
-            continue
-#        if (zeros == 0 and ones == 0):
-#            break
+        if label == 0:
+            if zeros > 0:
+                zeros = zeros - 1
+            else:
+                continue
+        if label == 1:
+            if ones > 0:
+                ones = ones - 1
+            else:
+                continue
+        if zeros < 0 and ones < 0:
+            break
+
         m = np.delete(X_shuffled[idx], rm, axis=1)
         x_sampled.append(m)
         y_sampled.append(y_t[idx])
 
     x_sampled = np.array(x_sampled)
     y_sampled = np.array(y_sampled)
-    print("Stage 2", x_sampled.shape, y_sampled.shape)
+    # print("y_sampled", y_sampled.shape, x_sampled.shape)
+    # print("Stage 2", x_sampled.shape, y_sampled.shape)
     return x_sampled, y_sampled
 
 predictions = []
 for gen in range(2):
     X_undersam, y_undersam = getRandomUnderSampledData(gen)
-    print("Stage 2 of", gen + 1, "__", X_undersam.shape, y_undersam.shape)
+    # print("Stage 2 of", gen + 1, "__", X_undersam.shape, y_undersam.shape)
+    # print("@@@@@", np.count_nonzero(y_undersam, axis=0))
+    print("undersampled****", X_undersam.shape, y_undersam.shape)
+
     X_undersam = np.nan_to_num(X_undersam)
 
-    y_undersam = np.array(y_undersam)
     X_train, X_val, y_train, y_val = train_test_split(X_undersam, y_undersam, shuffle=True, test_size=0.15)
-    print("Stage 3 of", gen + 1, "__", X_train.shape, y_train.shape)
+    # print("Stage 3 of", gen + 1, "__", X_train.shape, y_train.shape)
 
     generator2 = generate_data(X_train, y_train, batch_size)
     class_weights = class_weight.compute_class_weight('balanced', np.unique(y_train), y_train)
@@ -221,19 +230,18 @@ for gen in range(2):
     opt = Adam(lr=0.001, decay=1e-8)
     model.compile(optimizer=opt, loss=[focal_loss],
                   metrics=['accuracy', f1_m, precision_m, recall_m])
-    #model.fit(x=X_train, y=Y_train, epochs=10, batch_size=32, shuffle=True)
-    model.fit(x=X_train, y=y_train, epochs=20, batch_size=64, class_weight=class_weights, shuffle=True,
-              callbacks=[early_stopping, reduce_lr, terminate_on_nan, model_checkpoint])
+    # model.fit(x=X_train, y=y_train, epochs=20, batch_size=64, class_weight=class_weights, shuffle=True,
+    #           callbacks=[early_stopping, reduce_lr, terminate_on_nan, model_checkpoint])
 
-    # model.fit_generator(
-    #     generator2,
-    #     steps_per_epoch=math.ceil(len(X_train)/batch_size),
-    #     epochs=no_epochs,
-    #     class_weight=class_weights,
-    #     shuffle=True,
-    #     verbose=1,
-    #     validation_data=(X_val, y_val),
-    #     callbacks=[early_stopping, reduce_lr, terminate_on_nan, model_checkpoint])
+    model.fit_generator(
+        generator2,
+        steps_per_epoch=math.ceil(len(X_train)/batch_size),
+        epochs=no_epochs,
+        class_weight=class_weights,
+        shuffle=True,
+        verbose=1,
+        validation_data=(X_val, y_val),
+        callbacks=[early_stopping, reduce_lr, terminate_on_nan, model_checkpoint])
     loss, accuracy, f1_score, precision, recall = model.evaluate(X_val, y_val, verbose=0)
     print("EVALUATION loss for:___", gen, ":___", loss, "accuracy:", accuracy, "f1_score:", f1_score, "precision:", precision, "recall:",
           recall)
