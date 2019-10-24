@@ -25,13 +25,13 @@ from keras.callbacks.callbacks import TerminateOnNaN, ModelCheckpoint, LearningR
     EarlyStopping
 
 
-def classification_evaluation(y_ture, y_pred):
-    acc = accuracy_score(y_ture, (y_pred > 0.5).astype('int'))
-    auc = roc_auc_score(y_ture, y_pred)
-    fpr, tpr, thresholds = roc_curve(y_ture, y_pred)
-
-    print('Accuracy:', acc)
-    print('ROC AUC Score:', auc)
+# def classification_evaluation(y_ture, y_pred):
+#     acc = accuracy_score(y_ture, (y_pred > 0.5).astype('int'))
+#     auc = roc_auc_score(y_ture, y_pred)
+#     fpr, tpr, thresholds = roc_curve(y_ture, y_pred)
+#
+#     print('Accuracy:', acc)
+#     print('ROC AUC Score:', auc)
 
 def generate_data(x_data, y_data, b_size):
     samples_per_epoch = x_data.shape[0]
@@ -92,24 +92,25 @@ def f1_m(y_true, y_pred):
 #     return 1 - K.mean(f1)
 
 ############# ****  MODEL ***** ##############
-data_input = Input(shape=(None, 35))
-X = BatchNormalization()(data_input)
-sig_conv = Conv1D(64, (1), activation='sigmoid', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
-# rel_conv = Conv1D(64, (1), activation='relu', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
-# a = Multiply()([sig_conv, rel_conv])
-# b_sig = Conv1D(filters=64, kernel_size=(2), strides=1, kernel_regularizer=regularizers.l2(0.0005), activation="sigmoid", padding="same")(X)
-# b_relu = Conv1D(filters=64, kernel_size=(2), strides=1, kernel_regularizer=regularizers.l2(0.0005), activation="relu", padding="same")(X)
-# b = Multiply()([b_sig, b_relu])
-# X = Concatenate()([a, b])
-# X = BatchNormalization()(X)
-X = Bidirectional(LSTM(64))(sig_conv)
-# X = Bidirectional(LSTM(64))(X)
-# X = GlobalMaxPooling1D()(X)
-X = Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.0005))(X)
-X = Dropout(0.5)(X)
-X = Dense(1, kernel_regularizer=regularizers.l2(0.0005))(X)
-X = Activation("sigmoid")(X)
-model = Model(input=data_input, output=X)
+def rnn_model():
+    data_input = Input(shape=(None, 35))
+    X = BatchNormalization()(data_input)
+    sig_conv = Conv1D(64, (1), activation='sigmoid', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
+    # rel_conv = Conv1D(64, (1), activation='relu', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
+    # a = Multiply()([sig_conv, rel_conv])
+    # b_sig = Conv1D(filters=64, kernel_size=(2), strides=1, kernel_regularizer=regularizers.l2(0.0005), activation="sigmoid", padding="same")(X)
+    # b_relu = Conv1D(filters=64, kernel_size=(2), strides=1, kernel_regularizer=regularizers.l2(0.0005), activation="relu", padding="same")(X)
+    # b = Multiply()([b_sig, b_relu])
+    # X = Concatenate()([a, b])
+    # X = BatchNormalization()(X)
+    X = Bidirectional(LSTM(64))(sig_conv)
+    # X = Bidirectional(LSTM(64))(X)
+    # X = GlobalMaxPooling1D()(X)
+    X = Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.0005))(X)
+    X = Dropout(0.5)(X)
+    X = Dense(1, kernel_regularizer=regularizers.l2(0.0005))(X)
+    X = Activation("sigmoid")(X)
+    return Model(input=data_input, output=X)
 #####################################################
 
 max_len = 340
@@ -118,7 +119,7 @@ batch_size = 64
 # 128
 train_samples = 30336
 # 30336
-test_samples = 10000
+test_samples = 5
 # 10000
 no_epochs = 88
 
@@ -152,20 +153,20 @@ X_test = []
 ab = np.arange(40)
 np.random.shuffle(ab)
 rr = ab[:5]
-for i in range(0, test_samples):
-    data = np.load("data/test/test/" + str(i) + ".npy")
-    zero_mat = np.zeros((min_l, 40))
-
-    df1 = pd.DataFrame(data=data)
-    Q1 = df1.quantile(0.25)
-    Q3 = df1.quantile(0.75)
-    IQR = Q3 - Q1
-    df1 = df1[~((df1 < (Q1 - 1.5 * IQR)) | (df1 > (Q3 + 1.5 * IQR))).any(axis=1)]
-    data = np.array(df1)
-
-    zero_mat[:data.shape[0], :] = data[:min(min_l, data.shape[0]), :]
-    zero_mat = np.delete(zero_mat, rr, axis=1)
-    X_test.append(zero_mat)
+# for i in range(0, test_samples):
+#     data = np.load("data/test/test/" + str(i) + ".npy")
+#     zero_mat = np.zeros((min_l, 40))
+#
+#     df1 = pd.DataFrame(data=data)
+#     Q1 = df1.quantile(0.25)
+#     Q3 = df1.quantile(0.75)
+#     IQR = Q3 - Q1
+#     df1 = df1[~((df1 < (Q1 - 1.5 * IQR)) | (df1 > (Q3 + 1.5 * IQR))).any(axis=1)]
+#     data = np.array(df1)
+#
+#     zero_mat[:data.shape[0], :] = data[:min(min_l, data.shape[0]), :]
+#     zero_mat = np.delete(zero_mat, rr, axis=1)
+#     X_test.append(zero_mat)
 X_test = np.nan_to_num(np.array(X_test))
 
 mm = len(labels.loc[labels['label'] == 1])
@@ -200,16 +201,8 @@ def getRandomUnderSampledData(gen):
     print("Stage 2", x_sampled.shape, y_sampled.shape)
     return x_sampled, y_sampled
 
-
-reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.1, patience=10, verbose=1, mode='min')
-terminate_on_nan = TerminateOnNaN()
-model_checkpoint = ModelCheckpoint("cp1", monitor='loss', save_best_only=True, mode='min')
-early_stopping = EarlyStopping(monitor='recall_m', patience=10, mode='auto')
-opt = Adam(lr=0.001, decay=1e-8)
-
-
 predictions = []
-for gen in range(20):
+for gen in range(2):
     X_undersam, y_undersam = getRandomUnderSampledData(gen)
     print("Stage 2 of", gen + 1, "__", X_undersam.shape, y_undersam.shape)
     X_undersam = np.nan_to_num(X_undersam)
@@ -220,34 +213,40 @@ for gen in range(20):
 
     generator2 = generate_data(X_train, y_train, batch_size)
     class_weights = class_weight.compute_class_weight('balanced', np.unique(y_train), y_train)
-
+    model = rnn_model()
+    reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.1, patience=10, verbose=1, mode='min')
+    terminate_on_nan = TerminateOnNaN()
+    model_checkpoint = ModelCheckpoint("cp1", monitor='loss', save_best_only=True, mode='min')
+    early_stopping = EarlyStopping(monitor='recall_m', patience=10, mode='auto')
+    opt = Adam(lr=0.001, decay=1e-8)
     model.compile(optimizer=opt, loss=[focal_loss],
                   metrics=['accuracy', f1_m, precision_m, recall_m])
     #model.fit(x=X_train, y=Y_train, epochs=10, batch_size=32, shuffle=True)
-    #model.fit(x=X_train, y=y_train, epochs=20, batch_size=64, class_weight=class_weights, shuffle=True, callbacks=[early_stopping, reduce_lr, terminate_on_nan, model_checkpoint])
+    model.fit(x=X_train, y=y_train, epochs=20, batch_size=64, class_weight=class_weights, shuffle=True,
+              callbacks=[early_stopping, reduce_lr, terminate_on_nan, model_checkpoint])
 
-    model.fit_generator(
-        generator2,
-        steps_per_epoch=math.ceil(len(X_train)/batch_size),
-        epochs=no_epochs,
-        class_weight=class_weights,
-        shuffle=True,
-        verbose=1,
-        validation_data=(X_val, y_val),
-        callbacks=[early_stopping, reduce_lr, terminate_on_nan, model_checkpoint])
+    # model.fit_generator(
+    #     generator2,
+    #     steps_per_epoch=math.ceil(len(X_train)/batch_size),
+    #     epochs=no_epochs,
+    #     class_weight=class_weights,
+    #     shuffle=True,
+    #     verbose=1,
+    #     validation_data=(X_val, y_val),
+    #     callbacks=[early_stopping, reduce_lr, terminate_on_nan, model_checkpoint])
     loss, accuracy, f1_score, precision, recall = model.evaluate(X_val, y_val, verbose=0)
     print("EVALUATION loss for:___", gen, ":___", loss, "accuracy:", accuracy, "f1_score:", f1_score, "precision:", precision, "recall:",
           recall)
 
 
-    pred = model.predict(X_test)
-    print(pred.shape, pred)
-    predictions.append(pred)
-
-predictions = np.array(predictions)
-print("Ensemble labels shape:", predictions.shape)
-predictions = np.mean(predictions, axis=0)
-
-pred = pd.DataFrame(data=predictions, index=[i for i in range(predictions.shape[0])], columns=["Predicted"])
-pred.index.name = 'Id'
-pred.to_csv('rnn_v15.csv', index=True)
+#     pred = model.predict(X_test)
+#     print(pred.shape, pred)
+#     predictions.append(pred)
+#
+# predictions = np.array(predictions)
+# print("Ensemble labels shape:", predictions.shape)
+# predictions = np.mean(predictions, axis=0)
+#
+# pred = pd.DataFrame(data=predictions, index=[i for i in range(predictions.shape[0])], columns=["Predicted"])
+# pred.index.name = 'Id'
+# pred.to_csv('rnn_v15.csv', index=True)
