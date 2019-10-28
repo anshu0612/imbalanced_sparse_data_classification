@@ -56,7 +56,7 @@ for fileno in range(10000):
 
 test_set_results = []
 
-for it in range(5):
+for it in range(50):
     print('Starting XGBoost Iteration ', it)
     X = []
     y = []
@@ -74,14 +74,14 @@ for it in range(5):
     for index, train_label in shuffled_labels.iterrows():
         label = train_label['label']
         ## Checking below if number of zeros matches total number of ones, then stop adding zeros to data
-        if label == 0 and ones > 0:
-            ones = ones - 0.85
-        if ones <= 0 and label == 0:
-            sparse = __preprocess_feature(features)[0]
-            zero_test.append(np.nanmean(np.where(sparse != 0, sparse, np.nan), axis=0))
-            zero_test_y.append(0)
-            continue
-        ## features is a (N, 40) matrix
+        # if label == 0 and ones > 0:
+        #     ones = ones - 0.85
+        # if ones <= 0 and label == 0:
+        #     sparse = __preprocess_feature(features)[0]
+        #     zero_test.append(np.nanmean(np.where(sparse != 0, sparse, np.nan), axis=0))
+        #     zero_test_y.append(0)
+        #     continue
+        # ## features is a (N, 40) matrix
         features = np.load(prefix_path + '/train/train/' + str(train_label['Id']) + '.npy')
 
         sparse_x, dense_x = __preprocess_feature(features)
@@ -101,8 +101,12 @@ for it in range(5):
         X_sparse.append(sparse_means)
         y.append(label)
 
-    X_sparse = np.array(X_sparse)
+    X_sparse = np.nan_to_num(np.array(X_sparse))
     y = np.array(y)
+    from imblearn.under_sampling import RandomUnderSampler
+    cc = RandomUnderSampler(random_state=0)
+    print("UNDERSAMPLING IN PROGRESS===== **** ")
+    X_sparse, y = cc.fit_resample(X_sparse, y)
 
     # X = np.delete(X, 3, axis=1)
     # X = np.delete(X, 11, axis=1)
@@ -135,35 +139,45 @@ for it in range(5):
     print('y_test shape', y_test.shape)
 
     print('Starting XGB training')
-    # lgb_train = gbm.Dataset(x_train, y_train)
-    # lgb_eval = gbm.Dataset(x_test, y_test, reference=lgb_train)
-    # params = {
-    #     'boosting_type': 'gbdt',
-    #     'objective': 'binary',
-    #     'metric': {'l2', 'l1'},
-    #     'num_leaves': 128,
-    #     'learning_rate': 0.05,
-    #     'feature_fraction': 0.9,
-    #     'bagging_fraction': 0.8,
-    #     'bagging_freq': 10,
-    #     'verbose': 0,
-    #     "tree_learner": "feature"
-    # }
+    lgb_train = gbm.Dataset(x_train, y_train)
+    lgb_eval = gbm.Dataset(x_test, y_test, reference=lgb_train)
+    params = {
+        'boosting_type': 'gbdt',
+        'objective': 'binary',
+        'metric': {'l2', 'l1'},
+        # 'max_bin': ,
+        'num_leaves': 255,
+        # 'max_depth': ,
+        'learning_rate': 0.001,
+        'feature_fraction': 0.9,
+        'bagging_fraction': 0.8,
+        'bagging_freq': 10,
+        'verbose': 0,
+        "tree_learner": "feature"
+    }
+
     ################
     # from sklearn.tree import DecisionTreeRegressor
     # from sklearn.ensemble import GradientBoostingRegressor
+    # from sklearn.ensemble import AdaBoostRegressor
+    # from sklearn.svm import SVC
+    # from sklearn.utils import class_weight
 
-    model = RandomForestRegressor(n_estimators=200, min_samples_leaf=2, max_depth=12)
-    x_train = np.nan_to_num(x_train)
-    x_test_2 = np.nan_to_num(x_test_2)
-    test_X = np.nan_to_num(test_X)
-    model.fit(x_train, y_train)
+    from xgboost import XGBRegressor
+
+    # x_train = np.nan_to_num(x_train)
+    # x_test_2 = np.nan_to_num(x_test_2)
+    # test_X = np.nan_to_num(test_X)
+    # class_weights = class_weight.compute_class_weight('balanced', np.unique(y_train), y_train)
+    #
+    # model = XGBRegressor()
+    # model.fit(x_train, y_train)
     ################################
-    # model = gbm.train(params,
-    #                   lgb_train,
-    #                   num_boost_round=500,
-    #                   valid_sets=lgb_eval,
-    #                   early_stopping_rounds=20)
+    model = gbm.train(params,
+                      lgb_train,
+                      num_boost_round=200,
+                      valid_sets=lgb_eval,
+                      early_stopping_rounds=20)
 
     y_pred = model.predict(x_test_2)
     xg_predictions = [int(round(value)) for value in y_pred]
@@ -187,7 +201,7 @@ import pandas as pd
 
 df = pd.DataFrame()
 df["Predicted"] = final_y
-df.to_csv('random.csv', index_label="Id")
+df.to_csv('nearmiss.csv', index_label="Id")
 '''
 # load json and create model
 json_file = open('model.json', 'r')
