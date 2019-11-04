@@ -57,17 +57,16 @@ def malware_detection_model_3():
     sig_conv = Conv1D(64, (1), activation='sigmoid', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
     # rel_conv = Conv1D(64, (1), activation='relu', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
     # a = Multiply()([sig_conv, rel_conv])
-
+    #
     # b_sig = Conv1D(filters=64, kernel_size=(2), strides=1, kernel_regularizer=regularizers.l2(0.0005), activation="sigmoid", padding="same")(X)
     # b_relu = Conv1D(filters=64, kernel_size=(2), strides=1, kernel_regularizer=regularizers.l2(0.0005), activation="relu", padding="same")(X)
     # b = Multiply()([b_sig, b_relu])
 
     # X = Concatenate()([a, b])
-    # X = BatchNormalization()(X)
-    # X = Bidirectional(LSTM(64))(sig_conv)
-    X = LSTM(64)(sig_conv)
-
+    X = BatchNormalization()(sig_conv)
     # X = Bidirectional(LSTM(64))(X)
+
+    X = Bidirectional(LSTM(64))(X)
     # X = GlobalMaxPooling1D()(X)
     X = Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.0005))(X)
     X = Dropout(0.5)(X)
@@ -95,7 +94,7 @@ for it in range(iterations):
 
     max_len = 340
     batch_size = 512
-    shuffled_labels = shuffle(labels)
+    shuffled_labels = shuffle(labels, random=it)
     shuffled_y = np.array(shuffled_labels['label'])
     ## For each sample in the file
     X_sparse = []
@@ -137,7 +136,7 @@ for it in range(iterations):
 
 
     ## Split into train and test datasets
-    x_train, x_test, y_train, y_test = train_test_split(X_sparse, y, test_size=0.20)
+    x_train, x_test, y_train, y_test = train_test_split(X_sparse, y, test_size=0.20, random=it)
 
     x_test_2 = np.concatenate([x_test])
     y_test_2 = np.concatenate([y_test])
@@ -150,12 +149,47 @@ for it in range(iterations):
 
     reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.1, patience=10, verbose=1, mode='min')
     terminate_on_nan = TerminateOnNaN()
-    early_stopping = EarlyStopping(monitor='recall_m', patience=5, mode='auto')
+    early_stopping = EarlyStopping(monitor='accuracy', patience=5, mode='auto')
 
     print('Starting training')
-    model.fit(x=x_train, y=y_train, epochs=30, batch_size=32,
+    from sklearn.utils import class_weight
+    import math
+    class_weights = class_weight.compute_class_weight('balanced', np.unique(y_train), y_train)
+
+    model.fit(x=x_train, y=y_train, epochs=100, batch_size=32,
               shuffle=True,
+              class_weight=class_weights,
               callbacks=([terminate_on_nan, reduce_lr, early_stopping]))
+    # def generate_data(x_data, y_data, b_size):
+    #     samples_per_epoch = x_data.shape[0]
+    #     number_of_batches = samples_per_epoch / b_size
+    #     counter = 0
+    #     while 1:
+    #         x_batch = np.array(x_data[batch_size * counter:batch_size * (counter + 1)])
+    #         y_batch = np.array(y_data[batch_size * counter:batch_size * (counter + 1)])
+    #         counter += 1
+    #         yield x_batch, y_batch
+    #
+    #         if counter >= number_of_batches:
+    #             counter = 0
+    #
+    #
+    # generator2 = generate_data(x_train, y_train, 32)
+
+    # model.fit_generator(
+    #     generator2,
+    #     steps_per_epoch=math.ceil(len(x_train) / 32),
+    #     epochs=100,
+    #     shuffle=True,
+    #     class_weight=class_weights,
+    #     verbose=1,
+    #     # initial_epoch=86,
+    #     validation_data=(x_test_2, y_test_2),
+    #     callbacks=([terminate_on_nan, reduce_lr, early_stopping]))
+
+
+
+
     # lgb_train = gbm.Dataset(x_train, y_train)
     # lgb_eval = gbm.Dataset(x_test, y_test, reference=lgb_train)
     #
@@ -180,10 +214,10 @@ for it in range(iterations):
     # print('{} out of {} incorrect'.format(incorrect_x.shape, x_test_2.shape))
     ####
     # y_pred = np.array(y_pred).tolist()
-    # xg_predictions = [int(round(value)) for value in y_pred]
-    # print('Round validation ROCAUC, accuracy, recall, precision', roc_auc_score(y_test_2, y_pred),
-    #       accuracy_score(y_test_2, xg_predictions), recall_score(y_test_2, xg_predictions),
-    #       precision_score(y_test_2, xg_predictions))
+    xg_predictions = [int(np.around(value)) for value in y_pred]
+    print('Round validation ROCAUC, accuracy, recall, precision', roc_auc_score(y_test_2, y_pred),
+          accuracy_score(y_test_2, xg_predictions), recall_score(y_test_2, xg_predictions),
+          precision_score(y_test_2, xg_predictions))
 
     y_xg_1 = model.predict(test_X)
     test_set_results.append(y_xg_1)
