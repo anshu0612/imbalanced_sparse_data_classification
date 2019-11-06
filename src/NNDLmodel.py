@@ -39,7 +39,7 @@ def classification_evaluation(y_ture, y_pred):
     plt.show()
 # plt.style.use('seaborn')
 
-prefix = 'data1'
+prefix = 'data'
 labels = pd.read_csv(prefix + '/train_kaggle.csv')
 
 
@@ -60,7 +60,7 @@ def generate_data(x_data, y_data, b_size):
 data_input = Input(shape=(None, 40))
 X = BatchNormalization()(data_input)
 
-sig_conv = Conv1D(64, (1), activation='sigmoid', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
+sig_conv = Conv1D(128, (1), activation='sigmoid', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
 # rel_conv = Conv1D(64, (1), activation='relu', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
 # a = Multiply()([sig_conv, rel_conv])
 
@@ -70,8 +70,8 @@ sig_conv = Conv1D(64, (1), activation='sigmoid', padding='same', kernel_regulari
 
 # X = Concatenate()([a, b])
 # X = BatchNormalization()(X)
-X = Bidirectional(LSTM(64))(sig_conv)
-X = LSTM(64)(sig_conv)
+X = Bidirectional(LSTM(100))(sig_conv)
+#X = LSTM(64)(sig_conv)
 
 # X = Bidirectional(LSTM(64))(X)
 # X = GlobalMaxPooling1D()(X)
@@ -132,7 +132,7 @@ predictions = []
 max_len = 40
 batch_size = 512
 no_epochs = 30
-ml = 336
+ml = 340
 
 X_test = []
 for fileno in range(10000):
@@ -188,14 +188,14 @@ for i in range(10):
 
     ## Split into train and test datasets
     x_train, x_test, y_train, y_test = train_test_split(X_data, y, shuffle=True, test_size=0.20)
-
+    print("~~~~~~", x_train)
     # a = np.arange(40)
     # np.random.shuffle(a)
     # rm = a[:5]
     # xr = np.delete(xr, rm, axis=2)
     # X_test_dup = np.delete(X_test_dup, rm, axis=2)
 
-    model.compile(optimizer=Adam(lr=0.001, decay=1e-8), loss="binary_crossentropy",
+    model.compile(optimizer=Adam(lr=0.001, decay=1e-8), loss='binary_crossentropy',
                   metrics=['accuracy', f1_m, precision_m, recall_m])
     generator2 = generate_data(x_train, y_train, batch_size)
 
@@ -210,12 +210,12 @@ for i in range(10):
         steps_per_epoch=math.ceil(len(x_train) / batch_size),
         epochs=no_epochs,
         shuffle=True,
-        class_weight=class_weights,
+        #class_weight=class_weights,
         verbose=1,
         # initial_epoch=86,
         validation_data=(x_test, y_test),
         callbacks=([model_checkpoint, terminate_on_nan, reduce_lr, early_stopping]))
-
+    print(model.evaluate(x_test, y_test, verbose=0))
     loss, accuracy, f1_score, precision, recall = model.evaluate(x_test, y_test, verbose=0)
     pred = model.predict(X_test)
     predictions.append(pred)
