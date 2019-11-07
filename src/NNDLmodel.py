@@ -8,7 +8,7 @@ from sklearn.utils import class_weight
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve
-# from sklearn.metrics import precision_score, recall_score, f1_score, classification_report
+from sklearn.metrics import precision_score, recall_score, f1_score, classification_report
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 import keras.backend as K
@@ -19,7 +19,7 @@ from keras.layers import GRU, Concatenate, Dense, Dropout, Embedding, LSTM, Bidi
 from keras.regularizers import l2
 from keras.optimizers import Adam, SGD
 from sklearn.utils import shuffle
-
+from scipy import stats
 from keras.callbacks.callbacks import TerminateOnNaN, ModelCheckpoint, LearningRateScheduler, ReduceLROnPlateau, \
     EarlyStopping
 
@@ -42,6 +42,18 @@ def classification_evaluation(y_ture, y_pred):
 prefix = 'data'
 labels = pd.read_csv(prefix + '/train_kaggle.csv')
 
+sparse_index = [i for i in range(40)]
+# sparse_index = [i for i in sparse_index if i not in [4, 10, 25]]
+dense_index = [2, 3, 5, 7, 11, 12, 13, 15, 17, 18, 20, 24, 29, 33, 35, 37, 39]
+
+
+# sparse_index = [2, 3, 5, 7, 11, 12, 13, 15, 17, 18, 20, 24, 29, 33, 35, 37, 39]
+
+def __preprocess_feature(feat):
+    sparse_x = feat[:, sparse_index]
+    dense_x = feat[:, dense_index]
+    return sparse_x
+
 
 def generate_data(x_data, y_data, b_size):
     samples_per_epoch = x_data.shape[0]
@@ -56,31 +68,36 @@ def generate_data(x_data, y_data, b_size):
         if counter >= number_of_batches:
             counter = 0
 
+def mymodel():
+    data_input = Input(shape=(None, 40))
+    X = BatchNormalization()(data_input)
 
-data_input = Input(shape=(None, 40))
-X = BatchNormalization()(data_input)
+    a1 = Conv1D(64, (2), activation='sigmoid', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
+    #b1 = Conv1D(64, (1), activation='relu', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
+    #a = Multiply()([a1, b1])
 
-sig_conv = Conv1D(128, (1), activation='sigmoid', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
-# rel_conv = Conv1D(64, (1), activation='relu', padding='same', kernel_regularizer=regularizers.l2(0.0005))(X)
-# a = Multiply()([sig_conv, rel_conv])
-
-# b_sig = Conv1D(filters=64, kernel_size=(2), strides=1, kernel_regularizer=regularizers.l2(0.0005), activation="sigmoid", padding="same")(X)
-# b_relu = Conv1D(filters=64, kernel_size=(2), strides=1, kernel_regularizer=regularizers.l2(0.0005), activation="relu", padding="same")(X)
-# b = Multiply()([b_sig, b_relu])
-
-# X = Concatenate()([a, b])
-# X = BatchNormalization()(X)
-X = Bidirectional(LSTM(100))(sig_conv)
+    a2 = Conv1D(filters=64, kernel_size=(3), strides=1, kernel_regularizer=regularizers.l2(0.0005), activation="sigmoid", padding="same")(X)
+    #b2 = Conv1D(filters=64, kernel_size=(2), strides=1, kernel_regularizer=regularizers.l2(0.0005), activation="relu", padding="same")(X)
+    X = Multiply()([a1, a2])
+    #X = Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.0005))(X)
+    #X = Dense(64, activation='sigmoid', kernel_regularizer=regularizers.l2(0.0005))(X)
+    
+    #e(64, activation='relu', kernel_regularizer=regularizers.l2(0.0005))(
+    X = BatchNormalization()(X)
+    #X = Bidirectional(LSTM(64))(X)
 #X = LSTM(64)(sig_conv)
 
-# X = Bidirectional(LSTM(64))(X)
-# X = GlobalMaxPooling1D()(X)
-X = Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.0005))(X)
-X = Dropout(0.5)(X)
-X = Dense(1, kernel_regularizer=regularizers.l2(0.0005))(X)
-X = Activation("sigmoid")(X)
-model = Model(input=data_input, output=X)
-
+    X = Bidirectional(LSTM(32))(X)
+    #X = GlobalMaxPooling1D()(X)
+    #X = Dense(32, activation='relu', kernel_regularizer=regularizers.l2(0.0005))(X)
+    #X = Dense(32, activation='tanh', kernel_regularizer=regularizers.l2(0.0005))(X)
+   # X = BatchNormalization()(X)
+    X = Dropout(0.2)(X)
+    
+    X = Dense(1, kernel_regularizer=regularizers.l2(0.0005))(X)
+    X = Activation("sigmoid")(X)
+    model = Model(input=data_input, output=X)
+    return model
 
 def focal_loss(y_true, y_pred):
     gamma = 2.0
@@ -130,17 +147,31 @@ def f1_loss(y_true, y_pred):
 
 predictions = []
 max_len = 40
-batch_size = 512
-no_epochs = 30
-ml = 340
+batch_size = 128
+no_epochs = 100
+ml = 120
 
 X_test = []
 for fileno in range(10000):
-    zero_mat = np.zeros((ml, 40))
+    #zero_mat = np.zeros((ml, 40))
     features = np.load(prefix + '/test/test/' + str(fileno) + '.npy')
-    zero_mat[:features.shape[0], :] = features[:min(ml, features.shape[0]), :]
-    X_test.append(zero_mat)
-X_test = np.nan_to_num(np.array(X_test))
+    
+    sparse_x = __preprocess_feature(features)
+                    #sparse_means = np.nanmean(np.where(sparse_x != 0, sparse_x, np.nan), axis=0)
+    sparse_max = np.max(np.where(sparse_x != 0, sparse_x, np.nan), axis=0)
+    sparse_medians = np.nanmedian(np.where(sparse_x != 0, sparse_x, np.nan), axis=0)
+                                            #sparse_nans = np.count_nonzero(np.isnan(sparse_x), axis=0)
+    sparse_mode = stats.mode(sparse_x)
+    sparse_mode = sparse_mode[0][0]
+    sp = np.stack([sparse_mode, sparse_max, sparse_medians, sparse_x[0], sparse_x[-1]], axis=0)
+               # print("kya hai shape", sp.shape)
+    #sp = sp.reshape(1, sp.shape[0])
+
+   # sp = np.stack([sparse_mode, sparse_max, sparse_medians, sparse_x[0], sparse_x[-1]], axis=0)
+    
+    #zero_mat[:features.shape[0], :] = features[:min(ml, features.shape[0]), :]
+    X_test.append(sp)
+X_test = np.nan_to_num(np.array(X_test), -999)
 
 import math
 
@@ -158,7 +189,8 @@ def create_class_weight(labels_dict, mu=0.15):
 
     return class_weight
 
-for i in range(10):
+for i in range(30):
+    print("Iteration no.:", i+1)
     X = []
     y = []
     ones = len(labels.loc[labels['label'] == 1])
@@ -167,7 +199,7 @@ for i in range(10):
     X_data = []
     for index, train_label in shuffled_labels.iterrows():
         label = train_label['label']
-        zero_mat = np.zeros((ml, 40))
+        #zero_mat = np.zeros((ml, 40))
 
         if label == 0 and ones > 0:
             ones = ones - 0.85
@@ -175,27 +207,58 @@ for i in range(10):
             continue
         ## features is a (N, 40) matrix
         features = np.load(prefix + '/train/train/' + str(train_label['Id']) + '.npy')
+        sparse_x = __preprocess_feature(features)
+         
+        #features = np.log(1 + features)
+        sparse_means = np.nanmean(np.where(sparse_x != 0, sparse_x, np.nan), axis=0)
+        sparse_max = np.max(np.where(sparse_x != 0, sparse_x, np.nan), axis=0)
+        sparse_min = np.min(np.where(sparse_x != 0, sparse_x, np.nan), axis=0)
+        sparse_medians = np.nanmedian(np.where(sparse_x != 0, sparse_x, np.nan), axis=0)
+        #sparse_nans = np.count_nonzero(np.isnan(sparse_x), axis=0)
+        sparse_mode = stats.mode(sparse_x)
+        sparse_mode = sparse_mode[0][0]
+        
+        #sp = np.stack([sparse_mode], axis=0)
 
-        zero_mat[:features.shape[0], :] = features[:min(ml, features.shape[0]), :]
-
-        X_data.append(zero_mat)
+        sp = np.stack([ sparse_x[0], sparse_mode, sparse_max, sparse_min, sparse_medians, sparse_x[-1]], axis=0)
+        print("shape before::::", sp.shape)
+        from sklearn.impute import SimpleImputer
+        df2 = pd.DataFrame(data=sp)
+        imp_mean = SimpleImputer( strategy='mean') #for median imputation replace 'mean' with 'median'
+        imp_mean.fit(df2)
+        imputed_train_df = imp_mean.transform(df2)
+        sp = np.array(imputed_train_df)
+       # print("kya hai shape", sp.shape)
+        #sp = sp.reshape(1, sp.shape[0])
+        print("shape::::", sp.shape)
+        #df1 = pd.DataFrame(data=sp)
+        #Q1 = df1.quantile(0.25)
+        #Q3 = df1.quantile(0.75)
+        #IQR = Q3 - Q1
+        #df1 = df1[~((df1 < (Q1 - 1.5 * IQR)) | (df1 > (Q3 + 1.5 * IQR))).any(axis=1)]
+        #features = np.array(df1)
+        
+        #zero_mat[:features.shape[0], :] = features[:min(ml, features.shape[0]), :]
+        X_data.append(sp)
         y.append(label)
-
-    X_data = np.nan_to_num(np.array(X_data))
+    
+    X_data = np.nan_to_num(np.array(X_data), 0)
+    #print(X_data)
+    #X_data = np.log(1 + X_data)
     y = np.array(y)
     print(("=====>", X_data.shape))
     print("y shape", y.shape)
 
     ## Split into train and test datasets
     x_train, x_test, y_train, y_test = train_test_split(X_data, y, shuffle=True, test_size=0.20)
-    print("~~~~~~", x_train)
+    #print("~~~~~~", x_train)
     # a = np.arange(40)
     # np.random.shuffle(a)
     # rm = a[:5]
     # xr = np.delete(xr, rm, axis=2)
     # X_test_dup = np.delete(X_test_dup, rm, axis=2)
-
-    model.compile(optimizer=Adam(lr=0.001, decay=1e-8), loss='binary_crossentropy',
+    model = mymodel()
+    model.compile(optimizer=Adam(lr=0.001, decay=1e-8, clipvalue=0.5), loss="binary_crossentropy",
                   metrics=['accuracy', f1_m, precision_m, recall_m])
     generator2 = generate_data(x_train, y_train, batch_size)
 
@@ -205,25 +268,32 @@ for i in range(10):
     early_stopping = EarlyStopping(monitor='recall_m', patience=10, mode='auto')
 
     class_weights = class_weight.compute_class_weight('balanced', np.unique(y_train), y_train)
-    model.fit_generator(
-        generator2,
-        steps_per_epoch=math.ceil(len(x_train) / batch_size),
-        epochs=no_epochs,
-        shuffle=True,
-        #class_weight=class_weights,
-        verbose=1,
+    #model.fit_generator(
+    #    generator2,
+      #  steps_per_epoch=math.ceil(len(x_train) / batch_size),
+     #   epochs=no_epochs,
+       # shuffle=True,
+       # class_weight=class_weights,
+       # verbose=1,
         # initial_epoch=86,
-        validation_data=(x_test, y_test),
-        callbacks=([model_checkpoint, terminate_on_nan, reduce_lr, early_stopping]))
-    print(model.evaluate(x_test, y_test, verbose=0))
-    loss, accuracy, f1_score, precision, recall = model.evaluate(x_test, y_test, verbose=0)
+        #validation_data=(x_test, y_test),
+        #callbacks=([model_checkpoint, terminate_on_nan, reduce_lr, early_stopping]))
+    model.fit(x=x_train, y=y_train, epochs=100, batch_size=128, shuffle=True, class_weight=class_weights, callbacks=([terminate_on_nan, reduce_lr, early_stopping]))
+    
+    #print(model.evaluate(x_test, y_test, verbose=0))
+    #loss, accuracy, f1_score, precision, recall = model.evaluate(x_test, y_test, verbose=0)
+    y_pred = model.predict(x_test)
+    xg_predictions = [int(round(value)) for value in y_pred]
+    print('Round validation ROCAUC, accuracy, recall, precision', roc_auc_score(y_test, y_pred), accuracy_score(y_test, xg_predictions), recall_score(y_test, xg_predictions),
+            precision_score(y_test, xg_predictions))
+    
     pred = model.predict(X_test)
     predictions.append(pred)
 
 predictions = np.array(predictions)
 print("Ensemble labels shape:", predictions.shape)
 predictions = np.mean(predictions, axis=0)
-
+print("~~~~~", predictions)
 pred = pd.DataFrame(data=predictions, index=[i for i in range(predictions.shape[0])], columns=["Predicted"])
 pred.index.name = 'Id'
-pred.to_csv('rand_f_re.csv', index=True)
+pred.to_csv('rnn_v11_100_itr.csv', index=True)
