@@ -71,10 +71,10 @@ def generate_data(x_data, y_data, b_size):
             counter = 0
 
 predictions = []
-max_len = 40
+max_len = 80
 batch_size = 128
 no_epochs = 100
-ml = 150
+ml = 80
 
 
 def mymodel():
@@ -87,25 +87,25 @@ def mymodel():
     a = Conv1D(filters=64, kernel_size=(1), strides=1, kernel_regularizer=regularizers.l2(0.0005), activation="sigmoid", padding="same")(X)
     b = Conv1D(filters=64, kernel_size=(2), strides=1, kernel_regularizer=regularizers.l2(0.0005),activation="sigmoid", padding="same")(X)
     X = Concatenate()([a, b])                                                            # Normalization 2
-    X = BatchNormalization()(a)
+    X = BatchNormalization()(X)
 
                                                # BidirectionalLSTM
     X = Bidirectional(LSTM(32, return_sequences=True))(X)
-    X = Bidirectional(LSTM(32, return_sequences=True))(X)
-    attention = Dense(1, activation='tanh')(X)
-    attention = Flatten()(attention)
-    attention = Activation('softmax')(attention)
-    attention = RepeatVector(64)(attention)
-    attention = Permute([2, 1])(attention)
-    s_r = Multiply()([X, attention])
-    s_r = Lambda(lambda xin: K.sum(xin, axis=-2), output_shape=(64,))(s_r)
+    #X = Bidirectional(LSTM(32, return_sequences=True))(X)
+    #attention = Dense(1, activation='tanh')(X)
+    #attention = Flatten()(attention)
+    #attention = Activation('softmax')(attention)
+    #attention = RepeatVector(64)(attention)
+    #attention = Permute([2, 1])(attention)
+    #s_r = Multiply()([X, attention])
+    #s_r = Lambda(lambda xin: K.sum(xin, axis=-2), output_shape=(64,))(s_r)
 
     #X = Bidirectional(LSTM(32))(s_r)
-    #X = GlobalMaxPooling1D()(X)
-    #X = Dense(16, activation='relu', kernel_regularizer=regularizers.l2(0.0005))(s_r)
+    X = GlobalMaxPooling1D()(X)
+    X = Dense(16, activation='relu', kernel_regularizer=regularizers.l2(0.0005))(X)
     #X = Dense(32, activation='tanh', kernel_regularizer=regularizers.l2(0.0005))(X)
-    X = BatchNormalization()(s_r)
-    X = Dropout(0.2)(X)
+    #X = BatchNormalization()(s_r)
+    X = Dropout(0.5)(X)
     
     X = Dense(1, kernel_regularizer=regularizers.l2(0.0005))(X)
     X = Activation("sigmoid")(X)
@@ -180,9 +180,18 @@ for fileno in range(10000):
                # print("kya hai shape", sp.shape)
     #sp = sp.reshape(1, sp.shape[0])
 
-   # sp = np.stack([sparse_mode, sparse_max, sparse_medians, sparse_x[0], sparse_x[-1]], axis=0)
+    #sp = np.stack([sparse_mode, sparse_max, sparse_medians, sparse_x[0], sparse_x[-1]], axis=0)
     
-    zero_mat[:features.shape[0], :] = features[:min(ml, features.shape[0]), :]
+    if features.shape[0] > ml:
+        s= np.random.choice(range(21, features.shape[0]-20), 40, replace=False)
+        s.sort()
+        mid_f = features[s, :]
+        last_f = features[-20:,:]
+        #last_f = last_f.reshape(1, 40)
+        zero_mat = np.concatenate([features[:20,:] , mid_f, last_f], axis=0)
+
+    else:
+        zero_mat[:features.shape[0], :] = features[:min(ml, features.shape[0]), :]
     X_test.append(zero_mat)
 X_test = np.nan_to_num(np.array(X_test), 0)
 
@@ -202,7 +211,7 @@ def create_class_weight(labels_dict, mu=0.15):
 
     return class_weight
 
-for i in range(30):
+for i in range(10):
     print("Iteration no.:", i+1)
     X = []
     y = []
@@ -212,14 +221,15 @@ for i in range(30):
     X_data = []
     for index, train_label in shuffled_labels.iterrows():
         label = train_label['label']
-        #zero_mat = np.zeros((ml, 40))
+        zero_mat = np.zeros((ml, 40))
+        #zero_mat = np.full((ml, 40), -999)
 
         if label == 0 and ones > 0:
             ones = ones - 0.85
         if ones <= 0 and label == 0:
             continue
         ## features is a (N, 40) matrix
-        zero_mat = np.zeros((ml, 40))
+        #zero_mat = np.zeros((ml, 40))
         features = np.load(prefix + '/train/train/' + str(train_label['Id']) + '.npy')
         #sparse_x = __preprocess_feature(features)
          
@@ -251,8 +261,17 @@ for i in range(30):
         #IQR = Q3 - Q1
         #df1 = df1[~((df1 < (Q1 - 1.5 * IQR)) | (df1 > (Q3 + 1.5 * IQR))).any(axis=1)]
         #features = np.array(df1)
+        if features.shape[0] > ml:
+            s= np.random.choice(range(21, features.shape[0]-20), 40, replace=False)
+            s.sort()
+            mid_f = features[s, :]
+            last_f = features[-20:,:]
+            ##last_f = last_f.reshape(11, 40)
+            zero_mat = np.concatenate([features[:20,:] , mid_f, last_f], axis=0)
+
+        else:           
+            zero_mat[:features.shape[0], :] = features[:min(ml, features.shape[0]), :]
         
-        zero_mat[:features.shape[0], :] = features[:min(ml, features.shape[0]), :]
         X_data.append(zero_mat)
         y.append(label)
     
@@ -265,14 +284,14 @@ for i in range(30):
 
     ## Split into train and test datasets
     x_train, x_test, y_train, y_test = train_test_split(X_data, y, shuffle=True, test_size=0.20)
-    #print("~~~~~~", x_train)
+    print("~~~~~~", x_train.shape)
     # a = np.arange(40)
     # np.random.shuffle(a)
     # rm = a[:5]
     # xr = np.delete(xr, rm, axis=2)
     # X_test_dup = np.delete(X_test_dup, rm, axis=2)
     model = mymodel()
-    model.compile(optimizer=Adam(lr=0.001, decay=1e-8), loss="binary_crossentropy",
+    model.compile(optimizer=Adam( lr=0.001, decay=1e-8), loss="binary_crossentropy",
                   metrics=['accuracy', f1_m, precision_m, recall_m])
     generator2 = generate_data(x_train, y_train, batch_size)
 
@@ -310,4 +329,4 @@ predictions = np.mean(predictions, axis=0)
 print("~~~~~", predictions)
 pred = pd.DataFrame(data=predictions, index=[i for i in range(predictions.shape[0])], columns=["Predicted"])
 pred.index.name = 'Id'
-pred.to_csv('rnn_v11_100_itr.csv', index=True)
+pred.to_csv('last_day_3.csv', index=True)
