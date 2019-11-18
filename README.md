@@ -20,16 +20,9 @@ The solution achieved an AUC score of 93.461% on [Kaggle's private leadership bo
 |- README.md        : This file
 |- outputs          : Folder containing generated CSV files
 
-# Installation and Deployment Instructions
+## Installation and Training and Generating Predictions Instructions
 - Run run.sh script on your machine.
 - The final labels file will be generated as output.csv in the outputs directory
-
-## How to train the model and get the test predictions
-1. Download the [dataset](https://www.kaggle.com/c/1910-cs5228-knowledge-discovery-and-data-mining/data) from Kaggle and keep the extracted data in the project
-   root directory
-2. Do `pip install`
-3. Run the file kfold_ensemble.py by using the command python kfold_ensemble.py
-4. After training and prediction, output is generated in the file outputs folder
 
 ## Downloading dataset from Kaggle
 The easiest way to interact with Kaggle’s dataset is via Kaggle Command-line tool (CLI). Below are the steps to setup Kaggle CLI and use it to download the dataset
