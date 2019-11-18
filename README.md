@@ -20,7 +20,7 @@ The solution achieved an AUC score of 93.461% on [Kaggle's private leadership bo
 |- README.md        : This file
 |- outputs          : Folder containing generated CSV files
 
-## Installation and Training and Generating Predictions Instructions
+## Installation, Training and Generating Predictions Instructions
 - Run run.sh script on your machine.
 - The final labels file will be generated as output.csv in the outputs directory
 
