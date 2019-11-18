@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from catboost import CatBoostRegressor
+from catboost import CatBoostRegressor, CatBoostClassifier
 import tensorflow as tf
 import keras.backend as K
 from keras.preprocessing import sequence
@@ -17,7 +17,7 @@ from sklearn.metrics import accuracy_score, recall_score, precision_score, roc_a
 import lightgbm as gbm
 from sklearn.ensemble import RandomForestRegressor
 ## Below path hardcoded. TODO: Change this
-prefix_path = 'data1'
+prefix_path = 'data'
 
 labels = pd.read_csv(prefix_path + '/train_kaggle.csv')
 
@@ -57,7 +57,7 @@ for fileno in range(10000):
 
 test_set_results = []
 
-for it in range(30):
+for it in range(6):
     print('Starting XGBoost Iteration ', it)
     X = []
     y = []
@@ -137,60 +137,22 @@ for it in range(30):
     print('y_train Shape', y_train.shape)
     print('y_test shape', y_test.shape)
 
-    # print('Starting XGB training')
-    # lgb_train = gbm.Dataset(x_train, y_train)
-    # lgb_eval = gbm.Dataset(x_test, y_test, reference=lgb_train)
-    # params = {
-    #     'boosting_type': 'gbdt',
-    #     'objective': 'binary',
-    #     'metric': {'l2', 'l1'},
-    #     # 'max_bin': ,
-    #     'num_leaves': 128,
-    #     # 'max_depth': ,
-    #     'learning_rate': 0.005,
-    #     'feature_fraction': 0.9,
-    #     'bagging_fraction': 0.8,
-    #     'bagging_freq': 10,
-    #     'verbose': 0,
-    #     "tree_learner": "feature"
-    # }
 
-    ################
-    # from sklearn.tree import DecisionTreeRegressor
-    # from sklearn.ensemble import GradientBoostingRegressor
-    # from sklearn.ensemble import AdaBoostRegressor
-    # from sklearn.svm import SVC
-    # from sklearn.utils import class_weight
-
-    from xgboost import XGBRegressor
-
-    # x_train = np.nan_to_num(x_train)
-    # x_test_2 = np.nan_to_num(x_test_2)
-    # test_X = np.nan_to_num(test_X)
-    # class_weights = class_weight.compute_class_weight('balanced', np.unique(y_train), y_train)
-    #
-    # model = XGBRegressor()
-    # model.fit(x_train, y_train)
-    ################################
-
-    model = CatBoostRegressor(iterations=1500, learning_rate=0.01, l2_leaf_reg=3.5, depth=8, rsm=0.98,
+    model = CatBoostClassifier(iterations=800, learning_rate=0.01, l2_leaf_reg=3.5, depth=8, rsm=0.98,
                                loss_function='Logloss', eval_metric='AUC', use_best_model=True, random_seed=42)
 
-    # model = gbm.train(params,
-    #                   lgb_train,
-    #                   num_boost_round=200,
-    #                   valid_sets=lgb_eval,
-    #                   early_stopping_rounds=20)
     model.fit(x_train, y_train, cat_features=[], eval_set=(x_test_2, y_test_2))
 
-    # y_pred = model.predict_proba(x_test_2)
-    # xg_predictions = [int(round(value)) for value in y_pred]
-    # print('Round validation ROCAUC, accuracy, recall, precision', roc_auc_score(y_test_2, y_pred),
-    #       accuracy_score(y_test_2, xg_predictions), recall_score(y_test_2, xg_predictions),
-    #       precision_score(y_test_2, xg_predictions))
+    y_pred = model.predict_proba(x_test_2)
+    print(y_pred.shape)
+    y_pred = np.array(y_pred[:, 1])
+    xg_predictions = [int(np.round(value)) for value in y_pred]
+    print('Round validation ROCAUC, accuracy, recall, precision', roc_auc_score(y_test_2, y_pred),
+          accuracy_score(y_test_2, xg_predictions), recall_score(y_test_2, xg_predictions),
+          precision_score(y_test_2, xg_predictions))
 
     y_xg_1 = model.predict_proba(test_X)
-    test_set_results.append(y_xg_1)
+    test_set_results.append(y_xg_1[:, 1])
 
 test_set_results = np.array(test_set_results)
 print('Results', test_set_results.shape)
@@ -205,7 +167,7 @@ import pandas as pd
 
 df = pd.DataFrame()
 df["Predicted"] = final_y
-df.to_csv('lgbm_save.csv', index_label="Id")
+df.to_csv('cat_final.csv', index_label="Id")
 '''
 # load json and create model
 json_file = open('model.json', 'r')
