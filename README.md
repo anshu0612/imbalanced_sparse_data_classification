@@ -10,15 +10,6 @@ The solution achieved an AUC score of 93.461% on [Kaggle's private leadership bo
 - Virtualenv
 - Kaggle API key set up (https://github.com/Kaggle/kaggle-api)
 
-# Directory Structure
-|- src
-|   |- ml_feat.py   : Code for LightGBM based approach
-|   |- nn.py        : Code for Neural Network based training
-|   |- ensemble.py  : Code to combine outputs of both
-|   |- analyze.ipynb: Basic data analysis
-|- requirements.txt : Python requirements file
-|- README.md        : This file
-|- outputs          : Folder containing generated CSV files
 
 ## Installation, Training and Generating Predictions Instructions
 - Run run.sh script on your machine.
