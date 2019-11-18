@@ -1,4 +1,4 @@
-CS5228 Knowledge Discovery and Data Mining Final Project on Time Series Data Binary Classification 
+## CS5228 Knowledge Discovery and Data Mining Final Project on Time Series Data Binary Classification 
 [Kaggle Competition](https://www.kaggle.com/c/1910-cs5228-knowledge-discovery-and-data-mining/)
 
 The problem given was that of time series binary data classification. The solution to this problem involves careful feature engineering and data preprocessing, boosting and deep learning models and ensembling of these models. 
